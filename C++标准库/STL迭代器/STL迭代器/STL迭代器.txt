@@ -1,0 +1,124 @@
+1.迭代器头文件 <iterator>
+
+2.迭代器的种类：
+  迭代器是一种纯抽象的概念，只要其行为类似迭代器，它就是一种迭代器(可通过改编自寻常指针)
+  1.output iterator            向前写入               ostream  inserter
+  2.input iterator             向前读取一次           istream
+  3.forward iterator           向前读写               forward_list unordered_containers
+  4.bidirectional iterator     向前/向后读写          list set multiset map multimap                                                    
+  5.random-access iterator     以随机访问的方式读写    array vector deque string C-style array
+
+3.output iterator
+  output iterator允许一步一步的前行，并搭配write动作
+  (不能对一个区域write(迭代)两次，也就是说，你把一个值赋值两次，而迭代器不前进，这是不可能的)
+  (你能做的就是写入，写入，再写入)
+  1.output iterator迭代器的操作
+    *iter = val   赋值
+    ++iter        向前步进，返回新位置
+    iter++        向前步进，返回旧位置
+    TYPE(iter)    复制迭代器(拷贝构造)
+  2.output iterator的使用场景
+    1.将元素写至标准输出设备(屏幕)：第二次写入字会跟在第一个字后面，而不是覆盖第一个字
+    2.将元素插入容器(inserter)：第二次赋值会对容器随后写入第二个值，并不会覆盖第一个值
+
+4.input iterator
+  output iterator只能一次一个以前行方向读取元素
+  (不能对一个区域write(迭代)两次)
+  1.input iterator迭代器的操作
+    *iter                 读取实际元素
+    iter ->member         读取实际元素的成员(如果有)
+    ++iter                向前步进，返回新位置
+    iter++                向前步进，返回旧位置
+    iter1 == iter2        判断两个迭代器是否相等
+    iter1 != iter2        判断两个迭代器是否不等
+    TYPE(iter)            复制迭代器(拷贝构造)
+  2.input iterator的使用场景
+    从标准输入读取数据(同一个值不会被读取两次)
+  3.input iterator判断是否相等
+    input iterator的相等性判断只是用来检查：迭代器是否等于一个超尾迭代器
+    (没有任何保证说：两个迭代器如果都不是超尾迭代器，且指向不同位置，他们的比较结果会不想等)
+  4.迭代的前++会比后++效率更高，因为不用返回旧值
+
+5.forward iterator
+  forward iterator是一种input iterator在前进读取时提供额外保证
+  1.forward iterator迭代器的操作
+    *iter                      访问实际元素
+    iter->member               访问实际元素成员
+    ++iter                     向前步进，返回新位置
+    iter++                     向前步进，返回旧位置
+    iter1 == iter2             判断两个迭代器是否相等
+    iter1 != iter2             判断两个迭代器是否不等
+￼￼￼￼TYPE()                     创建迭代器(默认构造)
+    TYPE(iter)                 复制迭代器(拷贝构造)
+    iter1 = iter2              对迭代器赋值
+  2.和input iterator的判断性质不同：
+    如果两个forward迭代器指向相同元素，==会获得true
+    如果两者递增，会再次指向同一个元素
+  3.forward迭代器的提供者：forward_list unordered_containers
+
+6.bidirectional iterator双向迭代器
+  双向迭代器是在forward iterator的基础上，增加了回头迭代的能力(支持递减操作符)
+  bidirectional iterator满足output迭代器的所有条件(它是一个变异的output迭代器)
+  bidirectional iterator迭代器的操作：
+  1.--iter       步退(返回新位置)
+  2.iter--       步退(返回旧位置)       
+  bidirectional iterator提供者：链表和有序关联式容器
+
+7.random-Acess iterator随机访问迭代器
+  随机访问迭代器是在双向迭代器的基础上增加了随机访问的的能力
+  (类似于寻常指针，增减某个偏移量，计算两个迭代器之间的距离，用<和>进行比较等等)
+  random-Acess iterator随机访问迭代器操作：
+  随机访问迭代器具有所有迭代器的所有特性，此外，还增加了如下操作：
+  iter[n]        访问索引位置为n的元素
+  iter+=n        前进n个元素，如果n是负数，则改为后退
+  iter-=n        后退n个元素，如果n是负数，则改为前进
+  iter+n         返回iter之后的第n个元素
+  n+iter         返回iter之后的第n个元素
+  iter-n         返回iter之前的第n个元素
+  iter1-iter2    返回iter1到iter2之间的距离
+  iter1<iter2    判断iter1是否在iter2之前
+  iter1>iter2    判断iter1是否在iter2之后
+  iter1<=iter2   判断iter1是否不在在iter2之后
+  iter1>=iter2   判断iter1是否不在iter2之之前
+
+  random-Acess iterator随机访问迭代器提供者：
+  1.可随机访问的容器(array,vector,depue)
+  2.string(string，wstring)
+  3.寻常c风格数组(指针)
+
+  随机访问迭代器能力，详见：itercategory1.cpp
+  
+  注意：
+  1.随机访问迭代器对链表，有序关联容器，无序关联容器无效
+  2.只有随机访问迭代器，才允许使用<号进行比较
+  3.对随机访问迭代器进行数值运算时，应自行维护不能超出范围之外，否则后果时未定义的
+  4.random-Acess iterator满足output迭代器的所有条件(它是一个变异的output迭代器)
+
+8.关于迭代器的递增和递减
+  关于迭代器的递增和递减，如果递增和递减涉及到的时临时迭代器变量：
+  如果递增递减的时临时的迭代器变量：一般而言没什么问题，但对于array，vector，string在某些平台上是不行的
+    std::vector<int> coll;
+    ...
+    if (coll.size() > 1) {
+        std::sort(++coll.begin(), coll.end());
+    }
+    这会通不过编译
+    原因：c++标准不允许修改基础类型的临时变量值，对于struct和class的临时变量值允许修改
+         而array，vector，string这三种容器很有可能是以指针的形式，来实现随机访问迭代器的，指针属于基础类型
+         对它的临时值执行自增修改自然会引发编译期错误
+  为了解决这个问题，c++11提供了next()函数
+    std::vector<int> coll;
+    ...
+    if (coll.size() > 1) {
+        std::sort(std::next(coll.begin()), coll.end()); 
+    }
+  c++11之前必须使用一个临时变量，来解决这个问题
+  注意：这是一个编译期旧出现的问题，所以也并不是那么糟糕
+
+
+
+
+
+
+
+  

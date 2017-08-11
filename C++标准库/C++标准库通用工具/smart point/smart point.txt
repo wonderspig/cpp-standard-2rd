@@ -1,0 +1,149 @@
+shared_ptr
+1.智能指针的构造
+  1.智能指针的"作为单一指针作为唯一实参的"构造函数是explicit，所以禁止隐式类型转换(不能把普通指针直接赋值给智能指针)
+    shared_ptr<string> pNico(new string("nico")); //需要显示调用单参构造函数
+  2.对于初值列的赋值，智能指针是支持的
+    shared_ptr<string> pNico ＝ {new string("nico"}; //使用初值列初始化
+  3.可以使用make_shared构造智能指针
+    shared_ptr<string> pNico ＝ make_shared<string>("nico"); //这种方式效率较高
+  4.先声明智能指针，稍后再进行赋值
+    shared_ptr<string> pNico;
+    pNico.reset(new string("nico"));
+2.智能指针的使用：可以像指针一样，使用*来解引用，使用->来取得成员
+3.自定义智能指针的deleter：
+  shared_ptr<string> pNico(new string("nico", [](string* p){
+  													cout << "delete" << *p << endl;
+  													delete p;
+  													});
+  注意：自定义的delete，是一个函数对象，该函数对象有一个实参，该实参为智能指针所指向对象的地址(参数为真实的指向智能指针对象的指针，也就是new运算符返回的那个类型)
+4.对于array数组，因为shared_ptr内部调用的是delete，所以：
+  shared_ptr<int> p(new ine[10]); //智能指针指向数组的创建会成功，但是如果不提供deleter，析够时结果未定义
+  解决办法为：
+  1.自己定义deleter的函数对象中使用delete[]
+  2.使用unique_ptr提供的辅助函数
+    shared_ptr<int> p(new int[10], std::default_delete<int[]>());
+5.shared_ptr与unique_ptr的不同：
+  1.shared_ptr<int[]> p(new int[10]); //error
+    unique_ptr<int[]> p(new int[10]); //OK
+  2.shared_ptr不提供operator[]
+    unique_ptr有一个针对数组的特化版本，提供operator[]取代*和->
+6.指定自己的析够策略，如shared_ptr被销毁时，同时移除临时文件，详见：sharedptr2.cpp
+7.shared_ptr处理共享内存，详见：sharedptr3.cpp
+8.shared_ptr要保证，只被一组shared_ptr拥有(否则只要有一组计数为0，就会调用析勾，另一组会double析勾)：
+  int* p = new int;
+  shared_ptr<int> sp1(p);
+  shared_ptr<int> sp2(p); //ERROR
+  如下正确：
+  shared_ptr<int> sp1(new int);
+  shared_ptr<int> sp2(sp1); //OK
+  此外，还有间接发生这种现象的情况：详见：enableshared1.cpp
+  如在一个类中
+  mom->kids.push_back(shared_ptr<Person>(this));
+  dad->kids.push_back(shared_ptr<Person>(this)); //ERROR
+  注意：这里this是一个指向当前对象的指针，是一个普通指针类型，和int* p的类型原理是一样的。
+       把一个普通的指针类型让shared_ptr初始化两次，会出现被两组shared_ptr共同拥有，早成double析勾
+  解决办法：
+  1.采用构造函数的实参把指向本身的shared_ptr传进来(可以忽略)
+  2.采用shared_from_this()
+    方法是：让自己的类继承于enable_shared_from_this<>，然后调用enable_shared_from_this<>的公有成员函数shared_from_this()来获得
+    指向this的shared_ptr对象，用这个对象来进行push_back
+    注意：从enable_shared_from_this<>类派生表示这个类是被shared pointer管理的，派生时需要传入你自己的类名
+         而指向this的shared_ptr对象，存放在enable_shared_from_this<>的私有成员中，由shared_from_this()成员函数返回给你
+    注意：shared_from_this()成员函数，如果是构造函数中调用，那么会导致运行期错误。
+9.获得智能指针的deleter：
+  get_deleter(调用这个函数，必须把deleter的类型作为模板实参传递给get_deleter)
+  auto del = [] (int* p) {
+      delete p;
+  }
+  std::shared_ptr<int> p(new int, del);
+  decltype(del)* pd = std::get_deleter<decltype(del)> (p);
+10.两个智能指针共享拥有权，但指向不同的对象(aliasing构造函数):shared_ptr<T>(sp2, ptr)
+   struct X
+   {
+        int a;
+   }
+   shared_ptr<X> px(new X);
+   shared_ptr<int> pi(px, &px->a); //和px共享拥有权，但指向的目标是结构体X中的a
+   注意：要保证两个共享指针指向的对象寿命相同
+        例如：shared_ptr<X> sp1(new X);
+             shared_ptr<X> sp2(sp1, new X); //ERROR
+                                            //两个共享指针指向的对象都是新new出来的，各自独立，寿命周期也各自独立，却共享拥有权
+                                            //导致delete永远不会被调用，造成内存泄漏
+11.智能指针的类型转换，不能使用寻常的cast操作符，应该使用智能指针专用的类型转换操作符
+   shared_ptr<void> sp(new int);
+   shared_ptr<int>(static_cast<int*>(sp.get())); //ERROR
+   static_pointer_cast<int*>()sp; //OK
+
+weak_ptr
+weak_ptr时为了解决环式指向的问题，原理是虽然weak_ptr也指向对象，但是，并不加入"引用计数"，就是所谓的"共享但不拥有"。P84
+详见：weakptr1.cpp  weakptr2.cpp
+1.通过weak_ptr访问对象
+  p->mother->kids[0].lock()->name //要比shared_ptr多了一个lock()
+  注意：这个成员函数用来从weak_ptr产生出一个shared_ptr，因为只有shared_ptr才能访问数据，weak_ptr无法直接访问
+       如果隐藏在weak_ptr之后的对象已经不存在，那么会产生一个empty shared_ptr，对空的shared_ptr调用*或->，结果是未定义的
+2.判断weak_ptr之后的对象是否还存活
+  1.调用expired()，如果weak_ptr不再共享对象，则返回true。
+  2.使用shared_ptr的构造函数明确的将weak_ptr转换成一个shared_ptr，如果对象已经不存在，会抛出bad_weak_ptr。
+  3.调用use_count()询问拥有者数量，返回0代表不存在任何有效对象
+
+unique_ptr
+禁止共享的智能指针(独占式智能指针)，也就是遇到拷贝会报编译期错误，常用来在异常发生时避免资源泄漏。
+1.同样shared_ptr一样，寻常指针到unique_ptr的隐式类型转换式不允许的。(不管是构造还是赋值，都不允许普通指针的隐式类型转换)
+  unique_ptr<std::string> up(new std::string("nico")); //必须显示调用单参构造函数
+2.unique_ptr可以为empty：
+  up ＝ nullptr;
+  up.reset();
+3.调用release()，把拥有权转让给接受返回值的变量
+  std::string* sp = up.release(); //后面要自己delete sp才能防止资源泄漏
+4.unique_ptr提供bool操作符，可以直接放入if语句中判断，unique_ptr知否拥有对象
+5.unique_ptr可以直接用==或者!=来和nullptr进行比较
+6.可以使用get()成员函数来获得真实的指针(和shared_ptr相同)
+7.不能有两个unique_ptr指向同一个初值(和shared_ptr的两组共享权拥有相同对象原理一样)
+  std::string* sp = new std::string("hello");
+  std::unique_ptr<std::string> up1(sp);
+  std::unique_ptr<std::string> up2(sp); //ERROR
+  注意：这是一个运行期错误
+8.unique_ptr不允许使用寻常的拷贝构造函数和赋值运算符，但是可以使用move语义的拷贝构造函数和move语义的赋值运算符
+9.函数的调用过程中，unique_ptr的所有权传递
+  1.函数式接受端(接受unique_ptr的拥有权)，函数结束后，会自动delete掉unique_ptr所指向的资源
+    在传参给函数的时候，使用std::move(up)就行
+  2.函数式供应端(供应unique_ptr的拥有权)，函数体内构造unique_ptr指针，通过return返回给调用者，返回时不必加上std::move()，因为c++11标准规定，编译器
+    会自动加上std::move()
+10.unique_ptr作为类的成员
+   1.由unique_ptr作为类成员，可以不必再写析勾函数
+   2.如果构造函数中多次调用new来动态分配内存，使用unique_ptr可以防止资源泄漏(这个和异常发生时的优势时一样的)
+11.对于数组，unique_ptr提供了特化版本
+   std::unique_ptr<std::string> up(new std::string[10]); //ERROR
+   std::unique_ptr<std::string[]> up(new std::string[10]); //OK
+   注意：这个特化版本不再提供*和->操作符，但提供了[]操作符
+        特化版本使用的是delete[]，而非delete
+        特化版本的无法进行隐式的类型转换
+        特化版本不允许指向派生类对象(如构造的初值指向基类，则后续不允许改变对象，指向子类)
+12.unique_ptr的deleter
+   如果是单一对象，就是delete
+   如果不是单一对象是是数组，就是delete[]
+13.unique_ptr指定自己的delete：unique_ptr指定delete必须指定函数对象的类型名称(函数指针，函数对象，Lambda统称为函数对象)
+   1.如果是函数对象，类型名称就把函数对象的类名填入
+   2.如果是函数指针或者Lambda，则类型填写void(*)(T*)或者std::function<void(T*)>
+   3.可以使用decltype来指出类型
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

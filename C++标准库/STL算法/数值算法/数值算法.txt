@@ -1,0 +1,71 @@
+数值算法
+STL中用于处理数值的算法(也可以处理非数值元素，比如说字符串)
+需要包含头文件
+＃include <numeric>
+
+1.运算后产生结果
+  1.对数列进行某种元算
+  T
+  accumulate (InputIterator beg, InputIterator end,
+              T initValue)
+  T
+  accumulate (InputIterator beg, InputIterator end,
+              T initValue, BinaryFunc op)
+  1.第一形式计算initValue和区间内每一个元素的总和，相当于：initValue = initValue + elem
+  2.第二形式计算initValue和区间内每一个元素op的结果，相当于：initValue = op(initValue,elem)
+
+  使用accumulate()来得到区间内所有元素的总和，以及乘积，详见：accumulate1.cpp
+
+  2.计算两数列的内积
+  T
+  inner_product (InputIterator1 beg1, InputIterator1 end1,
+                 InputIterator2 beg2, T initValue)
+  T
+  inner_product (InputIterator1 beg1, InputIterator1 end1,
+                 InputIterator2 beg2, T initValue, BinaryFunc op1, BinaryFunc op2)
+  1.第一形式计算并返回区间beg1，end1之内的元素，与以beg2为起始的区间内的对应元素的内积，并加上initValue的值
+    相当于：initValue = initValue + elem1 * elem2
+  2.第二形式返回区间beg1，end1之内的元素，与以beg2为起始的区间内的对应元素，使用op2运算，然后与initValue的值进行op1运算
+    相当于：initValue = op1(initValue,op2(elem1,elem2))
+
+  inner_product()的使用，详见：innerproduct1.cpp
+
+2.相对数列和绝对数列之间的转换
+  1.将相对值转换成绝对值
+  OutputIterator
+  partial_sum (InputIterator sourceBeg, InputIterator sourceEnd,
+               OutputIterator destBeg)
+  OutputIterator
+  partial_sum (InputIterator sourceBeg, InputIterator sourceEnd,
+               OutputIterator destBeg, BinaryFunc op)
+  1.第一形式计算源区间sourceBeg，sourceEnd中每个元素的部分和，并将结果写入以destBeg为起始的区间
+    相当于：a1, a1+a2, a1+a2+a3
+  2.第二形式计算源区间sourceBeg，sourceEnd中每个元素和其先前的所有元素进行op运算，并将结果写入以destBeg为起始的区间
+    相当于：a1, a1 op a2, a1 op a2 op a3
+  3.源区间和目标区间可以完全相同
+  4.与adjacent_difference互补
+
+  partial_sum()的用法，详见：partialsum1.cpp
+
+  2.将绝对值转换为相对值
+  OutputIterator
+  adjacent_difference (InputIterator sourceBeg, InputIterator sourceEnd,
+                       OutputIterator destBeg)
+  adjacent_difference (InputIterator sourceBeg, InputIterator sourceEnd,
+                       OutputIterator destBeg, BinaryFunc op)
+  1.第一形式计算区间sourceBeg，sourceEnd内每个元素，和其紧邻的前一元素的差额，并将结果写入以destBeg为起始的区间
+    相当于：a1, a2-a1, a3-a2, a4-a3, ...
+  2.第二形式计算区间sourceBeg，sourceEnd内每个元素，和其紧邻的前一元素调用op操作，并将结果写入以destBeg为起始的区间
+    相当于：a1, a2 op a1, a3 op a2, a4 op a3, ...
+  3.源区间和目标区间可以完全相同
+  4.与adjacent_difference互补
+
+  adjacent_difference()的用法，详见：adjacentdiff1.cpp
+
+  用partial_sum()把相对数列转换为绝对数列，以及使用adjacent_difference()反向转换回来，详见：relabs1.cpp
+
+
+
+
+
+

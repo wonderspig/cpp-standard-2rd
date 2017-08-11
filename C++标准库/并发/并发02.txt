@@ -1,0 +1,351 @@
+4.线程的同步化与并发问题
+  解决并发访问的三个主要问题：未同步化的数据访问，写至半途的数据，重新安排的语句
+  首先要建立以下概念：
+  1.不可切割性(原子性)：读写一个变量的时候无法打断，另一个线程不可能读到一个写了一半的数据
+  2.次序：需要一些方法来保证指定语句的次序
+
+  C++库用了多种办法来处理这些概念(这份清单从高级到低级)
+  1.使用future和promse，他们保证形成成功之后，才设定"共享状态"
+  2.可以使用metux和lock来保护临界区
+  3.可以使用条件变量，可以使一些线程等待另一个线程控制的判断式成为true
+  4.使用atomic模板类型来包装基础类型等类型，确保每次对变量的访问动作都是不可切割的
+  5.可以使用atomic的底层接口，来使：专家的放宽语句次序，或对内存访问使用manual barrier
+
+  注意：c++中的volatile不提供原子访问的属性，所以加这个关键字没用
+
+5.mutex和lock
+    互斥锁：可以独占式的访问资源(访问的时候锁上，访问完了再解锁)
+    粗浅做法：
+    int val;
+	std::mutex valMutex;
+	一个线程中这样
+	if (val >= 0) {
+		f(val);
+	}
+	else {
+		f(-val);
+	}
+	valMutex.unlock();
+	另一个线程中这样
+	valMutex.lock();
+	++val;
+	valMutex.unlock();
+	注意：如果在两个锁之间抛出了异常，会导致锁被永远的锁住
+
+	应该让构造函数自己加锁，析构函数自己解锁，才能完美解决这个问题
+	c++为此提供了class std::lock_guard:
+	nt val;
+	std::mutex valMutex;
+	std::lock_guard<std::mutex> lg(valMutex);
+	if (val >= 0) {
+		f(val);
+	}
+	else {
+		f(-val);
+	}
+	注意：只要对象销毁，析构函数调用，就会自动释放锁
+
+	实例详见：mutex1.cpp
+	分析：printf()独占的写出自己的所有字符
+
+  1.递归的lock
+	使用Recursive Locks就可以允许递归锁
+	class DatabaseAccess
+	{
+	private:
+		std::recursive_mutex dbMutex; ... // state of database access
+	public:
+		void insertData (...) {
+			std::lock_guard<std::recursive_mutex> lg(dbMutex);
+			...
+		}
+		void insertData (...) {
+			std::lock_guard<std::recursive_mutex> lg(dbMutex);
+			...
+		}
+		void createTableAndinsertData (...) {
+			std::lock_guard<std::recursive_mutex> lg(dbMutex);
+			...
+			createTable(...); // OK: no deadlock }
+			...
+		};
+	}
+  2.尝试性地锁和带时间性的锁
+    1.try_lock()  尝试性地锁，成功返回true，失败返回false
+
+      为了仍旧能够使用class std::lock_guard，需要额外加一个参数std::adopt_lock
+    std::mutex m;
+	while (m.try_lock() == false) {
+		doSomeOtherStuff();
+	}
+	std::lock_guard<std::mutex> lg(m,std::adopt_lock);
+
+	2.等待特定长度时间的lock
+	  有两个支持等待时间的锁：
+	  classes std::timed_mutex    时间段
+	  std::recursive_timed_mutex  时间点
+	实例：
+	std::timed_mutex m;
+	if (m.try_lock_for(std::chrono::seconds(1))) { 
+		std::lock_guard<std::timed_mutex> lg(m,std::adopt_lock); 
+		...
+	}
+	else {
+		couldNotGetTheLock();
+	}
+	注意：如果改变系统时间，时间段和时间点的行为有所不同
+
+	3.处理多个lock
+	  处理多个锁，如果锁上的顺序不对，很容易发生死锁
+	  c++提供了便捷函数，让你一次锁定多个lock
+	std::mutex m1; std::mutex m2; ...
+	{
+		std::lock (m1, m2);
+		std::lock_guard<std::mutex> lockM1(m1,std::adopt_lock); 
+		std::lock_guard<std::mutex> lockM2(m2,std::adopt_lock); 
+		...
+	}
+	分析：1.全局函数lock()，会锁住它收到的所有锁(直到全部锁住，或者抛出异常)
+		   如果抛出异常，已经上锁的锁，也会全部解锁
+	     2.锁上后，应该使用class std::lock_guard，并带上一个额外的参数std::adopt_lock
+	       来使析构函数可以自动解锁
+	       注意：lock()提供了死锁的回避机制，也就代表，锁住的顺序不明确
+
+	  可以用相同的方式尝试"取得多个锁"
+	std::mutex m1;
+	std::mutex m2;
+	int idx = std::try_lock (m1, m2);
+	if (idx < 0) { 
+		std::lock_guard<std::mutex> lockM1(m1,std::adopt_lock); 
+		std::lock_guard<std::mutex> lockM2(m2,std::adopt_lock); ...
+	}
+	else {
+		std::cerr << "could not lock mutex m" << idx+1 << std::endl; 
+	}
+	分析：1.全局函数try_lock会依次锁定所有的锁(不提供死锁回避机制，保证以实参的次序依次上锁)
+	       若成功(全部的锁都锁上了)，返回-1，否则，返回第一个失败的锁的索引(所有成功的锁，会被释放)
+	     2.通常不会因为使用了try_lock或者lock就不过继给lock_guard(要保证离开作用域的时候自动解锁)
+
+	4.Class unique_lock
+	除了lock_guard，c++标准库还提供了unique_lock，unique_lock更有弹性，更灵活
+	unique_lock的接口和lock_guard类似，但可以明确指出，"何时"以及"如何"锁住或解锁它所拥有的mutex
+	(lock_guard的生命中，总是锁住mutex)
+	调用成员函数，bool或者owns_lock()，可以检查当前unique_lock东西内的锁，是否锁住
+	(同样，如果锁住unique_lock的析构函数会自动释放锁，否则析构函数什么也不做)
+
+	unique_lock添加了三个构造函数：
+	1.构造函数中传递try_to_lock，表示企图锁定，但不希望阻塞
+	std::unique_lock<std::mutex> lock(mutex,std::try_to_lock); ...
+	if (lock) { 
+		...
+	}
+	2.可以传递一个时间段或时间点给构造函数(尝试在一个时间周期内锁定)
+	std::unique_lock<std::timed_mutex> lock(mutex,
+                                              std::chrono::seconds(1));
+	...
+	3.可以传递一个defer_lock，表示初始化这一个锁，但是并未打算锁住
+	std::unique_lock<std::mutex> lock(mutex,std::defer_lock); 
+	...
+	lock.lock(); // or (timed) try_lock()
+	(可以用来建立一个或多个锁，并且在稍后再锁住他们)
+	(提供release成员函数来释放锁)
+
+  2.细说mutex和lock
+    1.细说mutex
+      mutex提供了以下4种类型的锁：
+      mutex：互斥锁，同一时间只有一个线程可以得到它
+      recursive_mutex：同一时间多次被同一线程获得它(典型应用，一个函数内lock然后调用另一个函数再次获得相同的lock)
+      timed_mutex：额外传递一个时间段或时间点，用来定义多少时间之内锁定它(提供了try_lock_for()和try_lock_until()成员函数)
+      recursive_timed_mutex：允许同一线程多次获得锁定它，可以指定期限
+
+      mutex的操作函数见：表18.7 mutex class的操作函数       P999
+      mutex的各种能力及其概览见：表18.6 各种mutex及其能力概览 P998
+
+      注意：lock成员函数可能抛出system_error异常，并夹带以下错误码：
+      1.operation_not_permitted：线程的特权级，不足以执行此操作
+      2.resource_deadlock_would_occur：平台侦测到有死锁发生
+      3.device_or_resource_busy：如果mutex已被锁定，而又无法形成阻塞
+
+      注意：以下对锁的操作使非法的，其结果未定义
+      1.如果程序解除一个并非它所拥有的mutex
+      2.销毁一个被任何线程拥有的mutex
+      3.线程拥有mutex，但却结束了生命
+
+      注意：调整系统时间的情况下try_lock_for()和try_lock_until()的行为有所不同
+
+    2.细说lock_guard
+      lock_guard保证锁在离开作用域的时候，会自动释放
+      mutex可以由lock_guard的构造函数申请，也可以绑定已经锁上的mutex
+      (lock_guard生命周期内，锁总是保持锁定状态)
+
+      lock_guard的操作函数见：表18.9 class lock_guard的操作函数 P1000
+
+    3.细说unique_lock
+      unique_lock和lock_guard类似，区别是unique_lock的生命周期内，并不是始终保持锁定状态
+      (你可以明确的控制，unique_lock所控制的锁，是占有锁定状态，还是解锁状态)
+      如果在调用析构函数的时候，是锁定状态，那析构函数会自动解锁，否则，析构函数什么也不干
+
+      lock()可能抛出system_error异常，夹带的差错码和mutex相同
+      unlock()可能抛出system_error异常，并夹带差错码operation_not_permitted(这个锁并未被锁定)
+
+      unique_lock的操作函数见：表18.9 class unique_lock操作函数 P1001
+
+  3.只调用一次
+    缓式初始化问题：某些机能初次被某个线程使用过之后，其他线程再也不需要它
+    可以使用mutex来实现，但c++提供了一个特殊的解法：
+    使用一个std::once_flag，并且调用std::call_once
+    std::once_flag oc; // global flag
+	...
+	std::call_once(oc,initialize); // initialize if not initialized yet
+	分析：1.第一实参是once_flag，第二实参是可调用对象(保证同一个once_flag下的可调用对象，只会调用一次)
+	     2.原则上可以使用同一个once_flag调用不同的调用对象，但只要一个调用成功了，剩下的就不会再调用，哪怕调用对象不同
+	     3.如果在调用对象内部抛出异常，这个异常会传递给call_once，此时这次调用算是不成功，第二此调用会继续调用
+
+6.条件变量
+  对不同线程的任务执行，有时候必须互相等待
+  条件变量就是用来对付这种情况：同步化线程之间的数据流依赖关系
+  1.条件变量的意图
+  	等待flag改变后，进行一系列操作(需要轮询来检测flag的状态)
+  	条件变量可以休眠等待标识改变，改变标志的线程会向等待的线程发送信号(这样可以避免轮询)
+  	C++标准库在<condition_variable>里面提供了条件变量
+
+  	原则上，条件变量的运作如下：
+  	1.包含<mutex>和<condition_variable>，声明一个条件变量和一个互斥量
+  	#include <mutex>
+    #include <condition_variable>
+    std::mutex readyMutex;
+    std::condition_variable readyCondVar;
+    2.激发条件满足的线程，在改变标志之后，要向等待的线程发送信号
+    readyCondVar.notify_one();  //通知一个等待线程
+    或
+    readyCondVar.notify_all();  //通知所有等待线程
+    3.等待条件满足的线程，必须调用：
+    std::unique_lock<std::mutex> l(readyMutex); 
+    readyCondVar.wait(l);
+    注意：1.必须使用unique_lock，原因是，在等待条件的时候，需要解锁
+         2.条件变量有可能假醒，所以醒来的条件变量一定要再次检查条件(检查标志)
+
+  2.实例详见：condvar1.cpp
+    分析：运用条件变量在包含了必要的头文件之后，要准备三样东西：
+         1.一个标志量(用来表现条件是否真的满足了)
+         2.一个mutex
+         3.一个条件变量
+
+         条件变量还有一个可有可无的第二实参，是一个判断式，用来在收到消息的时候，再次测试条件变量
+
+         流程就如实例中所示，记得一定要使用unique_lock(wait会在内部明确的对unique_lock解锁或者加锁)
+
+  3.实例详见：condvar2.cpp
+    分析：上一个例子的future可能会造成阻塞，直到某些数据到达(本例中没有这层顾虑)
+         三个线程把数值推入队列，两个线程从中读取数据
+
+  4.细说条件变量
+    头文件<condition_variable>，包含了两个条件变量的类：
+    1.condition_variable
+      1.因为有假醒的可能，所以，每当条件变量被唤醒，都需要重新检查条件
+      2.condition_variable的构造函数失败，会抛出system_error异常，并夹带错误码resource_unavailable_try_again
+      3.condition_variable的复制和赋值都是不允许的
+      4.通知都会同步化，所以并发调用notify_one()和notify_all()，没有任何问题
+      5.所有等待condition_variable的线程必须使用相同的mutex
+      6.wait()成员函数调用之前，必须用unique_lock锁住互斥量，否则结果是未定义的
+      7.wait_for()和wait_until()有一个不接受判断式的版本，他们的返回值是以下枚举：
+        std::cv_status::timeout      如果发生超时
+        std::cv_status::no_timeout   如果发生通知
+        wait_for()和wait_until()有一个接受判断式的版本(判断式作为第三实参)，他们返回判断式的执行结果
+      8.notify_all_at_thread_exit(cv,l)在调用线程退场的时候，调用notify_all()
+        为了在通知"等待线程"之前完成清理工作，这个清理工作绝不该造成阻塞
+
+      condition_variable的操作函数见：表18.10 condition_variable的操作函数
+
+    2.class condition_variable_any
+      1.和condition_variable类似，就是缺少native_handle()和notify_all_at_thread_exit()成员函数
+      2.不一定要求非要使用unique_lock(如果不是unique_lock加锁，则所有的同步化操作必须自己来实现)
+
+7.Atomic
+    需要用到锁，或者条件变量主要有以下几个原因：
+    1.就算面对基础类型，读写也不是原子的
+    2.编译器生成的代码的次序可能会改变
+
+    Atomic可以保证数据的原子读写，和语句次序和"代码出现的次序一致"
+
+  	atomic的使用注意点：
+  	1.你可以使用任何一般类型来生成atomic，
+  	  但你总是应该将atomic初始化(more构造函数并不会初始化它，不是初值不明确，是根本没有初始化)
+  	  如果你使用默认构造函数，接下来唯一允许的操作是atomic_init()来初始化atomic
+  	2.atomic中最重要的两条语句是：
+  	  store()    赋予新值
+  	  load()     取当前值
+  	  注意，这些操作都是原子的，所以不需要使用mutex
+  	3.对于atomic类型，你可以继续使用寻常而有用的操作，他们都是原子的，如：
+		int x = ai;
+		ai = 10;
+		ai++;
+		ai-=17;
+		等等
+		注意：和寻常赋值的区别是：
+			 1.寻常赋值，返回的是一个指向"接受该值"的引用
+			 2.atomic赋值，返回的是"被赋予的值"
+
+		实例详见：atomics1.cpp
+		分析：1.store()成员函数，会使它所在的内存区，执行一个release操作，确保store()之前的所有操作，都保持"代码出现的顺序"
+		     2.load()成员函数，会使它所在的内存区，执行一个acquire操作，确保在load()之后的所有操作，都保持"代码出现的顺序"
+
+		     因此保证了代码的相对次序，和原子访问两点(不需要mutex，也可以并发工作正常)
+
+    1.细说atomic的高级接口
+      头文件<atomic>中，声明了atomic的模板lass template std::atomic<>
+      可以套用在任何一半类型上，另有特化版本可以针对bool，所有整形及指针
+      声明：
+	template<typename T> struct atomic; 
+	template<> struct atomic<bool>; 
+	template<> struct atomic<int>;
+	...
+	template<typename T> struct atomic<T*>;
+
+	  atomic的操作见：表18.11 Atomic的高层操作 P1017
+	  补充：
+	  1.这些操作获得的是copy，而不是引用
+	  2.默认构造函数并不能将atomic完全初始化，如使用默认构造函数构造，唯一合法的下一步操作就是atomic_init()
+	  3.接受相关类型值的构造函数，并不是atomic
+	  4.所有的函数，除了构造函数，都被重载为volatile和non-volatile两个版本
+
+    atomic的部分声明：
+	namespace std {
+		template<> struct atomic<int> {
+		public:
+			atomic& operator=(const atomic&) = delete;
+			atomic& operator=(const atomic&) volatile = delete;
+
+			int operator= (int) volatile noexcept;
+			int operator= (int) noexcept;
+			...
+		}; 
+	}
+	注意：1.is_lock_free()可以判断atomic类型内部是不是由于lock才成为原子的
+			(用来判断硬件是否对atomic操作固有支持)
+		 2.compare_exchange_strong()和compare_exchange_weak()用来做比较操作
+		   "某内存区内容"和"某给定值"，如果他们相同，就把另一个给定的新值，赋值给内存区
+		   (如此可以保证，新值一定是最新的)
+		   试想，如果"某内存区内容"和"某给定值"并不想等，那有可能某内存区已经更新过了，但调用者并不知道
+		   这个时候再赋值新值就不合适(因为这个新值可能是你以为的最新值)，而内存区已经更新过了，你这个值对内存区来说，不一定"新"
+		 注意：weak版的比较可能出现假失败，但weak的版本更加高效
+
+	2.atomic的c风格接口
+	  atomic的类模板接口和c风格接口的对应规律：
+	  如：用atomic<bool>替换atomic_bool
+	  举例：
+	    std::atomic_bool ab; 
+	    std::atomic_init(&ab,false); 
+	    ... 
+	    std::atomic_store(&ab,true); 
+	    ...
+		if (std::atomic_load(&ab)) {
+			...
+		}
+
+		详细的对应名称见，表18.12 若干已有确切名称的std::atomic<>类型
+
+		注意：1.c风格还有另一组接口，采用_Atomic和_Atomic()
+			 2.c风格接口是用来再c和c++之间保持兼容，但现在再c++代码中使用c风格atomic并不罕见
+			 3.针对共享智能指针shared_ptr，atomic提供了特化版本，原因是：
+			   atomic<shared_ptr<T>>这样的声明不被允许，因为共享智能指针并非可复制

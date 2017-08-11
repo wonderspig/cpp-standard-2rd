@@ -1,0 +1,99 @@
+变序型算法：
+变序型算法会改变元素次序，但不改变元素值。
+这些算法不能用于有序关联式容器和无序关联式容器
+
+1.反转元素次序
+  void
+  reverse (BidirectionalIterator beg, BidirectionalIterator end)
+  OutputIterator
+  reverse_copy (BidirectionalIterator sourceBeg, BidirectionalIterator sourceEnd,
+                OutputIterator destBeg)
+  1.reverse()将会将beg，end区间内的元素全部反转次序
+  2.reverse_copy()会将源区间beg，end内的元素复制到以destBeg为起点的区间中，并在复制过程中反转次序
+
+  reverse()和reverse_copy()的用法，详见：reverse1.cpp
+
+2.旋转元素
+  1.旋转序列内的元素
+  ForwardIterator
+  rotate (ForwardIterator beg, ForwardIterator newBeg, ForwardIterator end)
+  1.将beg，end区间内的元素旋转，执行后，使*newBeg成为新的第一元素
+  2.newBeg是区间内的一个有效位置，否则后果不确定。
+
+  rotate()的使用，详见：rotate1.cpp
+
+  2.复制并同时旋转元素
+  OutputIterator
+  rotate_copy (ForwardIterator sourceBeg, ForwardIterator newBeg,
+               ForwardIterator sourceEnd, 
+               OutputIterator destBeg)
+  1.这是rotate和copy的组合，将源区间sourceBeg和sourceEnd内的元素复制到以destBeg为起始的目标区间，使*newBeg成为新的第一元素
+  2.newBeg是区间内的一个有效位置，否则后果不确定。
+  3.源区间和目标区间不可重叠
+
+  rotate_copy()的使用，详见：rotate2.cpp
+
+3.排列元素
+  bool
+  next_permutation (BidirectionalIterator beg, BidirectionalIterator end)
+  bool
+  next_permutation (BidirectionalIterator beg, BidirectionalIterator end,
+                    BinaryPredicate op)
+  bool
+  prev_permutation (BidirectionalIterator beg, BidirectionalIterator end)
+  bool
+  prev_permutation (BidirectionalIterator beg, BidirectionalIterator end,
+                    BinaryPredicate op)
+  1.next_permutation()会改变beg，end区间内的元素次序，使它们符合"下一次排列次序"
+  2.prev_permutation()会改变beg，end区间内的元素次序，使它们符合"上一次排列次序"
+  3.第一形式使用<号比较元素
+  4.第二形式使用二元判断式结果为true来比较元素
+  5.如果元素使按照字典顺序排序的，两个算法都返回false
+    所谓的字典顺序，对next_permutation而言使升序，对prev_permutation而言使降序
+    所以要遍历所有序列：你必须首先按升序或者降序排列所有元素，然后逐次调用next_permutation()或prev_permutation()
+
+  使用next_permutation()和prev_permutation()获得所有元素的所有排列组合，详见：permutation1.cpp
+
+4.对元素重新洗牌
+  1.以随机数重新洗牌
+  void
+  shuffle (RandomAccessIterator beg, RandomAccessIterator end,
+           UniformRandomNumberGenerator&& eng)
+  random_shuffle (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  random_shuffle (RandomAccessIterator beg, RandomAccessIterator end,
+                  RandomFunc&& op)
+  1.shuffle()是C++11提供的，使用你自己提供的随机数引擎(引擎不能是临时的)，将beg，end区间内的元素重新洗牌
+  2.random_shuffle()使用一个均匀分布的随机数产生器，打乱beg，end区间内的元素次序
+  3.第三形式使用op打乱beg，end区间内的元素次序：
+    算法内部使用一个整数值(类型是迭代器提供的difference_type)来调用op，
+    这个操作返回一个大于0小于max的随机数，不包括max
+
+  调用random_shuffle()但不指定随机数产生器，详见：shuffle1.cpp
+   调用random_shuffle()指定随机数产生器，详见：randomshuffle1.cpp
+
+5.将元素向前般
+  ForwardIterator
+  partition (ForwardIterator beg, ForwardIterator end,
+             UnaryPredicate op)
+  BidirectionalIterator
+  stable_partition (BidirectionalIterator beg, BidirectionalIterator end,
+                    UnaryPredicate op)
+  1.这两个算法将beg，end区间内造成二元判断式op的结果为true的元素向前移动
+  2.差别是stable_partition会保持元素的相对次序
+  3.这是一种根据排序准则，将元素分割为两部分的算法，类似于nth_element()
+
+  partition()和stable_partition()的区别，详见：partition1.cpp
+
+6.划分为两个子区间
+  pair<OutputIterator1,OutputIterator2>
+  partition_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+                  OutputIterator1 destTrueBeg, OutputIterator2 destFalseBeg, UnaryPredicate op)
+  1.以判断式op为依据，拆分beg，end区间内的所有元素成为两个子区间
+    所有造成二元判断式op为true的元素，被复制到destTrueBeg为起始的区间内
+    所有造成二元判断式op为flase的元素，被复制到destFalseBeg为起始的区间内
+
+  使用partition_copy()，详见：partitioncopy1.cpp
+
+
+

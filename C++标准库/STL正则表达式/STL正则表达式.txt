@@ -1,0 +1,206 @@
+1.概述
+  1.本篇基本上以正则表达式: "<(.*)>(.*)</(\1)>"作为示例来演示,意义为匹配类似于"<tag>value</tag>"的字符串
+  2.正则表达式(regex)看上去是一个类似于string或C-string的字符串,实际上,并不存在string或C-string到regex的自动类型转换
+    必须明确声明为regex类型,才能进行匹配
+
+  1.匹配与查找接口(每次匹配完成后告知调用者,是否匹配成功)
+    STL中regex的匹配查找函数分两大类
+    1.regex_match()   检查是否整个字符序列匹配
+    2.regex_search()  检查是否部分字符序列匹配
+    所以:
+      regex_search (data, regex(pattern))
+      总是等于:
+      regex_match (data, regex("(.|\n)*"+pattern+"(.|\n)*"))
+      注意:
+      (.|\n)*意义为任何字符
+
+  2.处理次表达式(每次匹配后告知调用者,是否匹配成功,且返回每次匹配的所有必要信息)
+    每次匹配的所有必要信息由match_results对象返回,具体类型为: Class std::match_results<>
+    Class std::match_results<>的预定义实例化包括:
+    smatch: strings
+    cmatch: C-strings (const char*)
+    wsmatch: wstrings
+    wcmatch: (const wchar_t*)
+
+    match_results对象包含如下内容:
+    1.匹配到的字符串(返回一个sub_match对象)
+      m[0]: 匹配合格的所有字符
+      m[n]: 根据分组符"()"所引用,匹配合格的第n个分组字符
+    2.prefix(): 第一个匹配合格的的字符前方的所有字符(返回一个sub_match对象)
+    3.suffix(): 最后一个匹配合格的字符后方的所有字符(返回一个sub_match对象)
+    注意: m[0],m[n],prefix(),suffix()返回的都是sub_match对象
+          每一个sub_match对象都派生自pair<>
+          1.first成员是第一个字符的位置
+          2.second成员是最末字符的下一个位置
+          3.str()以string形式取得字符
+          4.length()可取得字符数量
+          5.operator << 将sub_match对象写至输出流(隐式类型转换至string)
+
+    match_results对象包含以下成员:
+    1.str(): 匹配合格之整体字符串(str()或str(0)),或第n个匹配合格的字符串str(n),不存在则为空
+    2.length(): 匹配合格之字符串的整体长度(length()或length(0)),或第n个匹配合格的字符串的长度length(n),不存在则为空
+    3.position(): 匹配合格之字符串的位置(position()或position(0)),或第n个匹配合格的字符串的位置position(n),不存在则为空
+    4.成员函数begin(), cbegin(), end(), cend()可以用来迭代一个sub_match对象(从m[0]到m[n])
+
+    注意:大于size()的整数值n是合法的,会返回空
+
+    取得匹配合格的整体字符串:
+    m.str()
+    m.str(0)
+    m[0].str()
+    *(m.begin())
+    取得第n个匹配的字符串:
+    m.str(1)
+    m[1].str()
+    *(m.begin()+1)
+
+    注意: 当使用regex_match()版本时, prefix()和suffix()始终为空
+
+    图Regex的匹配相关接口: match_results
+
+    示例:
+    1.用string进行匹配,详见: regex2.cpp
+    2.用match_results迭代器进行匹配,详见: regex3.cpp
+
+  3.正则对象的迭代器(regex_iterator)
+
+    实例化实现同"次处理表达式"的Class std::match_results<>:分别以s, c, ws, wc开头
+
+    regex_iterator迭代器定义初始化示例: sregex_iterator pos(data.cbegin(),data.cend(),reg);
+
+    1.Regex Iterator的默认构造函数指出"末尾的下一个位置"
+    2.迭代器的operator *可取的当前合格匹配(一个match_results对象)
+      operator ++和operator --分别移至下一个和前一个合格匹配
+    3.可以把正则对象的迭代器(Regex Iterator),放入STL算法中使用,如:
+      sregex_iterator beg(data.cbegin(),data.cend(),reg);
+      sregex_iterator end;
+      for_each (beg,end,[](const smatch& m) {
+        cout << "match: " << m.str() << endl;
+        cout << " tag: " << m.str(1) << endl;
+        cout << " value: " << m.str(2) << endl;
+      });
+
+    详见: regexiter1.cpp
+
+  4.根据分隔符来分割字符串(对两个匹配出的序列之间的内容感兴趣)(regex_token_iterator)
+
+    实例化实现同"次处理表达式"的Class std::match_results<>:分别以s, c, ws, wc开头
+    regex_token_iterator的默认构造函数指出"末尾的下一个位置"
+
+    regex_token_iterator迭代器定义初始化示例:
+      sregex_token_iterator pos(data.cbegin(), data.cend(),
+                                reg,
+                                {0,2});
+
+    与regex_iterator相比,regex_token_iterator多了第四个参数,那是一个数值列,用来表示匹配正则表达式之后所关心的部分:
+    -1: 表示你对每一个"匹配到的正则表达式之间的部分"感兴趣
+        (正则表达式匹配出来的东西,你把它当成是字符串的分隔符,对分割之后的每一部分字符串感兴趣)
+    0:  表示你对"匹配到的正则表达式"感兴趣
+    n:  其他数字表示你对正则表达式中的第n个匹配次表达式感兴趣(正则表达式中用括号分组的部分,第n组)
+    注意: 数值列你可以传入:
+         1.单一整数值
+         2.整数值初值列
+         3.整数值组成的vector
+         4.整数值组成的array
+
+    详见: regextokeniter1.cpp
+
+  5.替换正则表达式匹配到的字符串
+    regex用于替换的符号:
+    默认的模式   sed模式       意义
+    $&          &            全部匹配到的字符串
+    $n          \n           第n个匹配到的字符串
+    $‘                       匹配到字符串的前面的所有字符
+    $’                       匹配到的字符串的后面的所有字符
+    $$                       字符$
+
+    详见: STL标准库 P730页
+
+  6.正则表达式标志(可以用来控制正则表达式的行为,模式等等)
+    正则表达式模式:
+    ECMAScript  ECMAScript文法
+    basic       Unix基本正则表达式文法
+    extended    Unix扩展正则表达式文法
+    awk         awk工具的文法
+    grep        grep的文法
+    egrep       egrep的文法
+
+    Other Creation Flags:
+    icase       忽略大小写
+    nosubs      不讲自序列存储于匹配结果
+    optimize    优化匹配速度,然后才考虑regex的创建速度
+    collate     形式为[a-b]的字符区间会受到本地字符编码的影响
+
+    Algorithm Flags:
+    match_not_null      不匹配空序列
+    match_not_bol       第一字符不匹配
+    match_not_eol       最末字符不匹配
+    match_not_bow       第一字符不匹配
+    match_not_eow       最末字符不匹配
+    match_continuous    只试图匹配"从第一个字符开始"的子序列
+    match_any           如果多余一个匹配,任何匹配皆可接受
+    match_prev_avail    第一字符的前一位置是一个有效位置
+
+    Replacement Flags:
+    format_default      使用默认的ECMAScript"替换语法"
+    format_sed          使用Unix工具sed"替换语法"
+    format_first_only   只替换第一个匹配
+    format_no_copy      对于未获匹配的字符,不予复制
+
+    详见: regex4.cpp
+
+  7.Regex的异常
+    正则表达式的异常累派生自std::runtime_error(和system_error一个级别),所以有code成员函数,详情可参见STL异常
+
+    详见: regexexception.hpp
+
+  8.Regex操作函数的签名式:
+    检验regex是否完全匹配
+    bool regex_match(str,regex)
+    bool regex_match(str,regex,flags)
+    bool regex_match(beg,end,regex)
+    bool regex_match(beg,end,regex,flags)
+
+    检验并返回regex的完全匹配
+    bool regex_match(str,matchRet,regex)
+    bool regex_match(str,matchRet,regex,flags)
+    bool regex_match(beg,end,matchRet,regex)
+    bool regex_match(beg,end,matchRet,regex,flags)
+
+    查找regex的部分匹配
+    bool regex_search(str,regex)
+    bool regex_search(str,regex,flags)
+    bool regex_search(beg,end,regex)
+    bool regex_search(beg,end,regex,flags)
+
+    查找并返回regex的部分匹配
+    bool regex_search(str,matchRet,regex)
+    bool regex_search(str,matchRet,regex,flags)
+    bool regex_search(beg,end,matchRet,regex)
+    bool regex_search(beg,end,matchRet,regex,flags)
+
+    根据regex替换所有匹配
+    strRes regex_replace(str,regex,repl)
+    strRes regex_replace(str,regex,repl,flags)
+    outPos regex_replace(outPos,beg,end,regex,repl)
+    outPos regex_replace(outPos,beg,end,regex,repl,flags)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

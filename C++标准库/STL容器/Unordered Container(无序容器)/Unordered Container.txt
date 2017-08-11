@@ -1,0 +1,353 @@
+定义：
+namespace std {
+	template <typename T,
+	typename Hash = hash<T>,
+	typename EqPred = equal_to<T>,
+	typename Allocator = allocator<T> >
+	class unordered_set;
+
+	template <typename T,
+	typename Hash = hash<T>,
+	typename EqPred = equal_to<T>,
+	typename Allocator = allocator<T> >
+	class unordered_multiset;
+
+	template <typename Key, typename T,
+	typename Hash = hash<T>,
+	typename EqPred = equal_to<T>,
+	typename Allocator = allocator<pair<const Key, T> > >
+	class unordered_map;
+
+	template <typename Key, typename T,
+	typename Hash = hash<T>,
+	typename EqPred = equal_to<T>,
+	typename Allocator = allocator<pair<const Key, T> > >
+	class unordered_multimap;
+}
+至少提供向前迭代器
+
+和有序的关联容器相对应
+unordered_set和unordered_multiset：存放某个特定类型的值
+unordered_map和unordered_multimap：存放的元素为pair<const key, T>
+
+unordered_set和unordered_map都不允许元素重复
+unordered_multiset和unordered_multimap允许元素重复
+
+关于元素类型
+1.unordered_set和unordered_multiset可以指定任意可比较的类型T(类型T就是key)
+2.unordered_map和unordered_multimap有一个key类型和一个value类型
+  key类型和一个value类型必须满足以下条件：
+  1.key和value必须时可被复制和搬移的
+  2.key必须可被比较
+  (元素的类型为pair<const key, T>)
+
+无序容器内部使用hash table进行排序和重新散列
+优势是可以保证：安插删除和查找所有元素时获得摊提常量时间(偶尔会发生重新散列)
+容器的所有操作的效率取决于hash函数的质量
+
+无序关联容器比起传统的有序关联容器有以下区别：
+1.无序容器不提供< > <= >=，只提供了 !=和==
+2.不提供操作函数：1.返回元素key为val的第一个可安插位置
+  				2.返回元素key为val的最后一个可安插位置
+3.因为至少提供向前迭代器，所以不提供反向迭代器，也无法使用需要双向迭代器的通用STL算法
+
+要改动元素，必须先删除元素，再插入元素，这套接口反映出以下行为：
+1.无序容器不提供"直接元素访问操作"
+2.从迭代器角度看，key(value)时常量
+
+程序员能够影响hash table的行为参数
+1.可以指定bucker的最小数量
+2.可以提供自己的hash函数
+3.提供自己的等价准则(是个二元谓词)
+4.指定最大负载系数
+5.强迫重新散列
+
+以下行为程序员时不可干涉的
+1.成长系数
+2.最小负载系数
+
+注意：重新散列只可能发生在：
+       1.插入元素操作函数
+       2.强制重新散列操作函数
+       3.调整容器大小操作函数
+       4.清空容器所有元素的操作函数
+     所以，删除元素的操作函数，不会导致指向容器元素的引用，迭代器或指针失效
+     (删除数百个元素也不会使bucker减少，但是再插入一个元素，就会使bucker缩小)
+
+对于可以使用等价key的无序容器，等价key会被相邻排列，而且等价key始终保持相对顺序
+
+1.创建，复制和销毁
+  1.默认构造函数(空无序容器)
+  2.构造至少含有bnum个bucket的空的无序容器
+  3.构造至少含有bnum个bucket的，以hf为hash函数的空的无序容器
+  4.构造至少含有bnum个bucket的，以hf为hash函数的，以cmp为等价准则的空的无序容器，
+  5.拷贝构造(右值拷贝构造)
+  6.赋值运算符(移动赋值运算符)
+  5.指定某个区间的构造函数
+  6.指定某个区间的构造函数(至少含有bnum个bucket)
+  7.指定某个区间的构造函数(至少含有bnum个bucket)(以hf为hash函数)
+  8.指定某个区间的构造函数(至少含有bnum个bucket)(以hf为hash函数)(以cmp为比较准则)
+  7.初值列构造函数
+  8.初值列赋值运算符
+
+构建有很多种实参传递形式
+1.传递众多的value来成为初始元素
+  1.拷贝构造(来自相同类型的既有容器)
+  2.来自一个区间的所有元素
+  3.来自初值列中的所有元素
+2.可以传递一些实参来影响无序容器的行为
+  1.hash函数(不是作为模板参数，而是构造函数参数传入)
+  2.等价准则(不是作为模板参数，而是构造函数参数传入)
+  3.bucket的数量(构造函数参数传入)
+注意：最大负载系数不能通过模板参数传入，也不能通过构造函数传入
+     只能再构造成功之后，调用成员函数来修改最大负载系数
+
+2.布局操作
+  1.返回hash函数
+  2.返回"相等性判断式"
+  3.返回当前bucket个数
+  4.返回bucket的最大可能数量
+  5.返回当前负载系数
+  6.返回当前最大负载系数
+  7.设定最大负载系数
+  8.将容器重新散列，使bucket至少为bnum
+  9.将容器重新散列，使其空间至少含有num个元素
+
+提供自己的hash函数，详见：hashval.hpp
+
+提供你自己的等价准则：
+1.为你自己的类型定义==运算符
+2.提供你自己的等价准则(二元谓词)
+注意：value再当前的等价准则下，被视为相等，那么再当前的hash函数下产生的hash value也应该相等
+     也就是说，如果一个无序容器带有一个非默认的等价准则，通常也需要一个非默认的hash函数
+
+非更易型操作
+2.非更易型操作
+  1.判空
+  2.取得目前的元素个数
+  3.返回元素个数的最大可能量
+  4.== !=
+  注意：序列容器只提供了== !=
+
+3.特殊的查找操作
+  无序容器对快速查找元素操作有着优化设计，所以无序容器提供了特殊的查找函数，使通用STL的特殊版本，拥有常量时间复杂度
+  (寻常有序关联容器对数复杂度，序列容器线性复杂度)
+  1.返回元素值为val的元素个数
+  2.返回元素值为val的第一个元素，找不到就返回超尾迭代器
+  3.返回val可被安插的第一个位置和最后一个位置(元素值等于val的元素区间)
+
+4.赋值
+  1.普通赋值运算符
+  2.移动赋值运算符
+  3.初值列赋值运算符
+  4.成员swap和非成员swap
+  注意：1.只有容器类型相同，才可以进行赋值和交换(hash函数的类型和等价准则的类型都相同)
+       2.如果hash函数不同(构造函数实参定义的hash函数)，则赋值或交换时，hash函数也会被赋值或交换
+
+5.迭代器相关函数和元素访问
+  1.可以使用范围for循环
+  2.可以使用迭代器进行访问(迭代器只保证向前迭代器，不是双向迭代器或随机访问迭代器)
+    1.提供了指向第一个元素的迭代器: 一般迭代器，常量迭代器，反向迭代器，反向常量迭代器
+    2.提供了指向最后一个元素的迭代器: 一般迭代器，常量迭代器，反向迭代器，反向常量迭代器
+  注意：1.无序容器只提供了向前迭代器，所以不能够再使用双向迭代器或随机访问迭代器的STL算法中使用他们
+       2.从迭代器的角度看，所有的元素都被视为只读(随意改变会危机位置)
+         所以不能把无序容器用于更易型算法(remove等等)，想移除元素可以调用成员函数
+
+范围for循环访问元素
+std::unordered_map<std::string,float> coll;
+...
+for (auto elem& : coll) {
+	std::cout << "key: "   << elem.first  << "\t"
+			  << "value: " << elem.second << std::endl;
+}
+
+迭代器访问
+for (auto pos = coll.begin(); pos != coll.end(); ++pos) {
+	std::cout << "key: " << pos->first << "\t"
+	          << "value: " << pos->second << std::endl;
+}
+
+注意：改变元素key会引发错误
+     如果value的值非const，则可以修改    
+
+使用Lambda来操作map元素，必须明确指明元素类型
+std::map<std::string,float> coll;
+...
+// add 10 to the value of each element: 
+std::for_each (coll.begin(), coll.end(),
+						[] (std::pair<const std::string,float>& elem) 
+						                              { elem.second += 10;});
+
+注意: 1.std::pair<const std::string可以改成：std::unordered_map<std::string,float>::value_type
+      2.std::pair<const std::string可以改成：decltype(coll)::value_type
+
+一定要改变元素key：
+1.以一个value相同的新元素，替换掉旧元素。详情见：newkey.cpp
+2.map提供了一种方便的方法：
+  //如果把旧的key值赋值给新key值
+    (下标运算符:如果使容器中没有的这个key值，则会自动创建)
+   coll["new_key"] = coll["old_key"];
+  //删除这个key值
+   coll.erase("old_key");
+
+可以把unordered_map用作关联式数组(使用下标运算符[]和at()成员函数)
+
+有一个额外的迭代器，可以用来遍历一个无序容器的bucket
+
+安插和移除元素
+1.元素的安插和移除(通用的更易型操作)
+  必须保证实参合法
+  1.迭代器必须指向一个合法的位置
+  2.区间的起始位置不能在结束位置之后
+  多个元素的安插，安插一次比安插多次效率高(异常保证会降低)
+
+操作函数：
+  insert
+  (所有插入函数返回新元素的位置)
+  1.插入一个val
+  2.在pos位置插入一个val(pos只是一个提示)
+  3.插入一个区间中的元素(无返回值)
+  4.插入一个初值列中的元素(无返回值)
+  emplace
+  (所有插入函数返回新元素的位置)
+  5.插入args为初值的元素
+  6.在pos位置插入args为初值的元素(pos只是一个提示)
+  erase
+  7.移除与val相等的所有元素，返回移除的元素个数
+  8.移除pos位置上的元素，无返回值
+  9.移除区间中的元素，无返回值
+  clear
+  10.移除所有元素，容器为空
+  注意：插入的操作函数会保证元素的相对次序，也就是说，元素会被安插在"既有等值元素群的末尾"
+       插入新元素时，key被视为常量(要么提供正确的类型，要么提供显示或隐式的类型转换)
+
+关于重新散列后，迭代器，引用和指针是否失效的分析：
+1.因为删除函数不会引发重新散列，所以删除元素(erase系列)永远不可能使指向容器的迭代器，引用和指针失效
+2.安插元素的函数当超过最大负载时，会引发重新散列，重新散列后指向容器的迭代器将失效，引用和指针不会失效
+
+insert系列和emplace系列
+  unordered_set/unordered_map中：
+  insert系列：无pos的版本返回新元素迭代器和是否成功的bool值组成的pair
+             有pos的版本只返回新元素位置
+  emplace系列：无pos的版本返回新元素迭代器和是否成功的bool值组成的pair
+              有pos的版本只返回新元素位置
+  unordered_multiset/unordered_multimap中：
+  insert系列：无pos的版本返回新元素位置
+             有pos的版本只返回新元素位置
+  emplace系列：无pos的版本返回新元素位置
+              有pos的版本只返回新元素位置
+  注意：如此的原因时因为unordered_set/unordered_map不允许重复元素，所以插入时可能会失败
+       不管成功还是失败，此函数都会返回新元素的位置，如果失败，返回的是同值元素的位置
+
+c++11开始，最方便的插入方式时初值列：
+std::unordered_map<std::string,float> coll;
+coll.insert({"otto",22.3});
+
+插入元素进入unordered_map/multimap的方法有三种：
+1.运用value_type：这是为了防止隐式类型转换，使用value_type强制指明类型
+  std::unordered_map<std::string,float> coll;
+  ...
+  coll.insert(std::unordered_map<std::string,float>::value_type("otto",22.3));
+  or
+  coll.insert(decltype(coll)::value_type("otto",22.3));
+2.直接使用pair：
+  std::unordered_map<std::string,float> coll;
+  ...
+  coll.insert(std::pair<std::string,float>("otto",22.3));  //类型不准确，隐式类型转换
+  coll.insert(std::pair<const std::string,float>("otto",22.3));
+  注意:能进行隐式类型转换时因为insert定义成了成员模板
+3.运用make_pair
+  std::unordered_map<std::string,float> coll;
+  ...
+  coll.insert(std::make_pair("otto",22.3)); //隐式类型转换
+  注意:能进行隐式类型转换时因为insert定义成了成员模板
+
+用emplace安插新元素(传递两个实参，一列为key，另一列为value)
+如：
+std::unordered_map<std::string,std::complex<float>> m;
+m.emplace(std::piecewise_construct, 
+		  std::make_tuple("hello"),
+          std::make_tuple(3.4,7.8));
+注意：这使用到了标准库通用工具中tuple的逐块式构造
+
+unordered_map提供了at()和[]操作符用来访问元素
+
+删除某个key的元素：
+1.使用erase：删除携带这个key的所有元素，返回删除的元素个数(如果时unordered_mapunordered_set返回的只能是0或1)
+2.只删除携带这个key的第一个元素
+  std::unordered_map<std::string,float> coll;
+  ...
+  if (pos != coll.end()) {
+       coll.erase(pos);
+  }
+  注意：这个同set和multiset一样
+       用这个循环删除的时候，当心锯断正在坐着的树枝
+       (删除节点后，pos指向的节点将无效，pos不再是coll的有效迭代器)
+       解决方案：
+       c++11：
+       std::unordered_map<std::string,float> coll;
+	   ...
+	   for (auto pos = coll.begin(); pos != coll.end(); ) { 
+	   		if (pos->second == value) {
+       			pos = coll.erase(pos);
+	   		}
+	   		else {
+				++pos; 
+			}
+	   }
+	   注意：c++11的erase总是返回一个迭代器，指向后继元素
+	   c++11之前
+	   typedef std::unordered_map<std::string,float> StringFloatMap; 
+	   StringFloatMap coll;
+	   StringFloatMap::iterator pos;
+	   ...
+	   for (pos = coll.begin(); pos != coll.end(); ) {
+	   		if (pos->second == value) {
+            	coll.erase(pos++);
+        	}
+			  else { 
+			    ++pos;
+			}
+		}
+		注意：pos++返回pos的后一个位置，本身用作参数去调用erase，所以pos本身已经不指向那个已移除的元素了
+
+		以迭代器为元素的unordered_map/set，调用earse会造成歧义，所以c++11重载了相关earse
+
+		面对unordered_multimap/multiset，标准库保证插入和移除元素会保留等价元素的相对次序(安插元素会安插在等价元素的末尾)
+
+bucket接口
+  1.返回当前bucket个数
+  2.返回val被找到的那个bucket编号
+  3.返回bucketidx个bucket所含的元素个数
+  4.返回一个向前迭代器：指向第bucketidx个bucket的第一个元素
+  5.返回一个向前迭代器：指向第bucketidx个bucket的最后一个元素的下一个位置
+  6.返回一个只读向前迭代器：指向第bucketidx个bucket的第一个元素
+  7.返回一个只读向前迭代器：指向第bucketidx个bucket的最后一个元素的下一个位置
+
+把unordered_map作为关联式数组
+通常，关联式容器不允许对元素进行直接访问。
+但是unordered_map提供了[]和at()，支持元素直接访问
+1.at()如果传给它的key不在范围之内，会抛出异常
+2.[]如果传给它的key不在范围之内，则会新建这个key，用默认构造函数初始化
+  (和传统array不同之处是key不必非是整数)
+优点：可以同过方便的接口安插新元素
+缺点：可能会一不小心误置新元素
+
+异常处理
+无序容器也是以节点为基础的容器，一旦节点构造失败，不过时恢复到原先的状态而已
+c++标准对无序容器提供了如下保证：
+1.如果hash函数和等价准则不抛出异常
+  1.单元素安插要么成功，要么无作用
+  2.删除元素不会抛出异常
+  3.强制"重新散列"要么成功，要么无作用
+2.如果hash的拷贝构造，拷贝赋值操作符和等价准则不抛出异常
+  1.swap函数绝对不会抛出异常
+3.清空容器的clear操作函数，永远不会抛出异常
+
+无序容器运用实例
+1.无序容器的基本能力：详见：undordset1.cpp
+                    详见：unordmultiset1.cpp
+2.提供你自己的hash函数和等价准则，详见：hashfunc1.cpp
+3.使用Lambda作为hash函数和等价准则，详见：hashfunc2.cpp
+4.bucket接口使用实例，详见：buckets.hpp unordinspect1.cpp
+5.bucket接口的另一个实例，详见：unordmultimap1.cpp

@@ -1,0 +1,239 @@
+函数对象概念：
+函数对象包括两种：
+1.定义了一个operator()的class
+2.一般的函数
+注意：定义了一个operator()的class的函数对象有以下三大优点
+     1.class函数对象更加灵活，可以拥有状态
+     2.class函数对象有明确的类型，可以用来当作模版参数(容器的类型会因为class类型的不同而不同)
+     3.class函数对象的执行速度更快
+
+class函数对象的应用
+1.以class函数对象为排序准则，详见：sort1.cpp
+  分析：1.使用排序准则PersonSortCriterion作为set的模板参数(一般的函数对象无法做到这一点，这样会实例化一个第一无二的set)
+       2.拥有自己独一无二类型的set，是无法和不同排序准则的其他set合并或赋值。
+         (但是你可以使用相同class函数对象却拥有不同排序规则的特性，设计出拥有相同类型，却使用不同排序准则的set)
+
+2.class函数对象，拥有内部状态，详见：sequence1.cpp
+  分析：1.sequence1函数对象产生一组整数序列(调用一次会根据当前的成员值产生一个整数)
+       2.根据所谓的当前class中的成员值不同，产生的整数也不同，这就是所谓的class当前的状态
+       3.默认情况下class函数对象是按值传递的(所以算法并不会改变class函数对象的状态)
+         (好处是可以传递临时变量的表达式和常量表达式，缺点是你无法改变class函数对象的状态)
+         (因为算法改变的是class函数对象的副本)
+         有三种办法可以使你获得"运用了class函数对象的算法"的class函数对象的最终状态
+         1.在外部持有class函数对象，并让函数对象指向它
+         2.用引用的方式传递函数对象
+         3.利用for_each()算法的返回值(详见下一点的分析)
+
+         例：
+         用引用的方式传递函数对象：
+         generate_n<back_insert_iterator<list<int>>, int, IntSequence&>(back_inserter(coll),4, seq);
+
+3.for_each()的返回值
+  for_each()的返回值会返回传入算法的最终状态(不必再费心用引用的方式传递class函数对象了，其他任何算法都没有这个功能)
+  实例详见：foreach3.cpp
+  分析：class MeanValue中的operator()中，每调用一次，就计算传入的数值个数，并且把传进来的数值累加
+       当算法结束时，把最终的class函数对象返回(这个函数对象中已经有了所有传递进去的数值的总和以及传递进去的数值的个数)
+       利用这个class的最红状态来求平均值
+
+4.判断式和class函数对象
+  所谓的判断式，就是返回bool值的函数对象，但并不是所有的返回bool值的函数对象都是合法的判断式
+  C++标准要求，判断式再被调用时，不能改变自身的状态(例如remove_if()算法会再内部有一分判断式的拷贝，这就会出现问题)
+  注意：如果使用Lambda，使所有的Lambda函数对象拷贝共享状态，这个问题就不会发生
+
+
+与定义的函数对象
+1.所有已经预定义好的函数对象：
+negate<type>()               - param
+plus<type>()                 param1 + param2
+minus<type>()                param1 - param2
+multiplies<type>()           param1 * param2
+divides<type>()              param1 / param2
+modulus<type>()              param1 % param2
+equal_to<type>()             param1 == param2
+not_equal_to<type>()         param1 != param2
+less<type>()                 param1 < param2
+greater<type>()              param1 > param2
+less_equal<type>()           param1 <= param2
+greater_equal<type>()        param1 >= param2
+logical_not<type>()          ! param
+logical_and<type>()          param1 && param2
+logical_or<type>()           param1 || param2
+bit_and<type>()              param1 & param2
+bit_or<type>()               param1 | param2
+bit_xor<type>()              param1 ^ param2
+
+2.函数适配器和binder
+  bind(op,args...)       //将args绑定给op
+  mem_fn(op)             //调用op，把它当作某个对象(或只想对象的指针)的成员函数
+  not1(op)               //单参反向，!op(param)
+  not2(op)               //双参反向，!op(param1, param2)
+
+  最重要的函数适配器是bind()，它允许
+  1.再既有的或者预定的的函数对象之外，另外绑定合成新的函数对象
+  2.调用全局函数
+  3.针对对象，指向对象的指针，指向对象的只能指针调用其成员函数
+
+  bind可用于绑定参数到可调用对象：
+  如果一个函数，函数对象或Lambda需要若干参数，你可以把参数绑定为"明白指出的"和"被算法传入的"
+  对于明确指出的，只需直接写出其名称
+  对于被算法传入的，可以使用占位符_1, _2(占位符被定义于名称空间std::placeholders中)
+
+  bing使用实例，详见bind1.cpp
+  分析：
+  bind本身是一个函数对象，它的返回值是被合成后的函数对象
+  算法调用bind的完成现象是这样的
+  bind(_1, _2, _3)(x1,x2,x3)
+  把x1放在_1的位置(括号中的第一个参数，放在_1占位符所在的位置)
+  把x2放在_2的位置(括号中的第二个参数，放在_2占位符所在的位置)
+  把x2放在_3的位置(括号中的第三个参数，放在_3占位符所在的位置)
+
+  1.std::bind(std::plus<int>(),std::placeholders::_1,10);
+    bind想要合成plus<int>()
+    plus<int>()有两个参数，第一个参数取给bind传的第一个参数，第二个参数写死为10
+
+  2.std::bind(std::multiplies<int>(),
+              std::bind(std::plus<int>(),
+                        std::placeholders::_1,
+                        10),
+              2);
+    bind的嵌套
+    最外层开始...
+    std::multiplies<int>()有两个参数，第一个参数使用另一个bind的结果，第二个参数写死为2
+    std::plus<int>()有两个参数，第一个参数为传进bind的第一个参数，第二个参数写死为10
+    调试分析：
+    std::bind(std::multiplies<int>(),
+              std::bind(std::plus<int>(),
+                        std::placeholders::_1,
+                        10),
+              2)(7)；
+    传给bind的参数只有一个，数值为7
+    只有一个参数的bind，会把第一个参数放在_1的位置(不管bind嵌套多少层，此规则不变，所有层次的bind中，有多少个_1，第一个参数就放在多少个_1的地方)
+    所以函数就变成了：
+    std::bind(std::multiplies<int>(),
+              std::bind(std::plus<int>(),
+                        std::placeholders::7,
+                        10),
+              2)；
+    意义为：里层bind计算7+10的值，并把结果返回作为std::multiplies<int>()的第一个参数
+           外层的bind，第一个参数为得到的17，第二个参数写死的为2，相乘后获得结果
+
+  3.std::bind(std::multiplies<int>(),
+              std::bind(std::multiplies<int>(),
+                        std::placeholders::_1,
+                        std::placeholders::_1),
+              std::placeholders::_1);
+    bind的嵌套
+    最外层开始...
+    std::multiplies<int>()有两个参数，第一个参数使用另一个bind的结果，第二个参数为传进bind的第一个参数
+    里层的std::multiplies<int>()有两个参数，第一个参数为传进bind的第一个参数，第二个参数为传进bind的第一个参数
+    调试分析：
+    std::bind(std::multiplies<int>(),
+              std::bind(std::multiplies<int>(),
+                        std::placeholders::_1,
+                        std::placeholders::_1),
+              std::placeholders::_1)(7);
+    传给bind的参数只有一个为7
+    只有一个参数的bind，会把第一个参数放在_1的位置(不管bind嵌套多少层，此规则不变，所有层次的bind中，有多少个_1，第一个参数就放在多少个_1的地方)
+    所以函数就变成了：
+    std::bind(std::multiplies<int>(),
+              std::bind(std::multiplies<int>(),
+                        std::placeholders::7,
+                        std::placeholders::7),
+              std::placeholders::7);
+    意义为：里层的bind计算7*7，并把结果返回作为作为外层std::multiplies<int>()的第一个参数
+           外层的bind第一个参数为返回的7*7，第二个参数为传参进来的第一个参数为7，相乘后获得结果
+
+  4.std::bind(std::divides<double>(),
+            std::placeholders::_2,
+            std::placeholders::_1);
+  std::divides<double>()有两个参数，第一个参数为传入的第二个参数，第二个参数为传入的第一个参数。
+
+  调用全局函数
+  以上的例子都是调用的全局函数
+
+  调用成员函数
+  详见：bind2.cpp
+  分析：
+  调用成员函数时，第一个参数为class函数对象，第二个参数开始，才是operator()的参数
+  bind会使用传入的对象，根据这个对象调用成员函数，并依次传入后面的参数(第二个参数以后的参数)
+  bind(&Person::print,_1)
+  bind(&Person::print2,_1,"Person: ")  //始终需要一个_1占位符来占位，第一个传入的参数时class函数对象
+  注意：1.可以传入指向对象的指针，以及指向对象的智能指针
+       2.调用虚函数也可以正确调用
+
+3.mem_fn适配器
+  mem_fn返回成员函数对象
+  使用mem_fn不再需要占位符来表示第一个参数为class函数对象
+  std::for_each (coll.begin(), coll.end(), std::mem_fn(&Person::print));
+  具体原理为：
+  std::mem_fn(&Person::print)(n);
+  std::mem_fn(&Person::print2)(n,"Person: ");
+  所以，如果你需要为成员函数绑定额外实参，那还是避免不了使用bind
+  std::for_each (coll.begin(), coll.end(), std::bind(std::mem_fn(&Person::print2),
+                 std::placeholders::_1,
+                 "Person: "));
+
+  绑定数据成员
+  accumulate (coll.begin(), coll.end(),
+                  0,
+                  bind(plus<int>(),
+                       _1,
+                       bind(&map<string,int>::value_type::second,
+                            _2)));
+  注意：这是一种对一个map中所有的值求和
+       为了得到元素value的访问权：
+       bind(&map<string,int>::value_type::second,_2)
+       每次调用这个判断式所传入的第二个参数，绑定到元素数据成员的second
+
+
+4.not1和not2几乎过时，没有什么可以使用的场景，详见P494~P495
+
+5.使用函数适配器搭配用户自定义的class函数对象
+  原理和之前的相同(bind部分的详细解释，bind怎么调用与定义的函数对象，相同原理调用自定义的函数对象)
+  详见：fopow.cpp
+
+
+
+
+运用Lambda
+Lambda用于局部定义，class函数对象用来全局定义。
+
+Lambda对带有状态的class函数对象，详见：Lambda2.cpp
+分析：
+Lambda的状态被置于Lambda之外的变量sum，你最终使用sum来计算中值
+class函数对象中，状态会被彻底封装，必须提供额外的成员函数来处理状态
+请与for_each中的例子进行对比
+
+Lambda使用mutable：如果外部定义的变量按值传递给Lambda，Lambda内部无法对这个值进行涂写
+                  但是使用mutable后，就可以对按值传递的外部变量进行涂写
+所以，如果使用mutable来更改Lambda的状态情况下调用类似于remove_if()这样的函数，会造成非预期的结果。
+当然，按引用传递，并不使用mutable，就使remove_if()内部被拷贝的Lambda共享同一状态
+
+Lambda调用成员函数和全局函数
+全局函数直接调用就可以了，详见：lambda4.cpp
+成员函数以也可以按平常的调用如p.print(),详见：lambda5.cpp
+
+使用lambda作为无序容器的hash函数：
+class Person {
+...
+};
+auto hash = [] (const Person& p) {
+...
+};
+auto eq = [] (const Person& p1, Person& p2) {
+...
+};
+unordered_set<Person,decltype(hash),decltype(eq)> pset(10,hash,eq);
+注意:必须使用decltype来将Lambda的类型明确传递给无序容器，后者会建立属于自己的一份实例
+    (当然hash函数和相等准则都要传递，默认构造函数所传的想等准则，对你自定义来说的Lambda是没有任何意义的)
+    因此可以看书，一旦涉及到状态，Lambda并非总是较好的选择
+
+
+
+
+
+
+
+
+
+

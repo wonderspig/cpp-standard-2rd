@@ -1,0 +1,147 @@
+1.反向迭代器
+  反向迭代器重定义了++和--运算，使其行为正好颠倒(可使用这种迭代器，使算法以反向次序处理元素)
+
+  如果迭代器原本具有双向移动能力
+  那么你除了可以使用容器自带的rbegin(),rend(),crbegin(),crend()之外
+
+  你还可以把原本正常迭代器转换成反向迭代器
+  转换方法：
+  vector<int>::const_reverse_iterator rpos(pos)
+  注意：1.pos为正常迭代器，反向迭代器的构造函数中，有一个以正常迭代器作为单参的构造函数
+       2.反向迭代器物理意义所指的元素位置，和逻辑意义所指的元素位置就不一致，图：9.3  9.4
+
+  你还可以把反向迭代器，转换为正常迭代器base()
+  base()定义为成员函数：
+	namespace std {
+		template <typename Iterator> class reverse_iterator ... {
+			...
+			Iterator base() const;
+			...
+		}; 
+	}
+举例：
+rrpos = rpos.base();
+注意:rpos为反向迭代器，base()是他的成员函数
+
+2.安插型迭代器
+  inserter iterator：用来将赋予新值的动作，转换为安插新值的动作
+  					 用这种迭代器，可使算法使用安插动作，而非覆写动作
+  					 inserter iterator隶属于output迭代器
+  原理：
+  1.*运算符并无作用，仅仅返回一个*this，对安插迭代器来说，pos与*pos是一样的
+  2.赋值动作转换成安插动作的原理是inserter迭代器会调用容器的push_back(), push_front(), or insert()成员函数
+  3.递增操作也并无任何作用，仅仅返回一个*this
+
+  安插迭代器的操作：
+  *iter              无作用，返回*this
+  iter = value ￼     安插value
+￼ ++iter             无作用，返回*this
+  iter++             无作用，返回*this
+
+  有三种类型的inserter迭代器
+  Back inserter          back_insert_iterator            push_back(value)           back_inserter(cont)
+  Front inserter         front_insert_iterator           push_front(value)          front_inserter(cont)
+  General inserter       insert_iterator                 insert(pos,value)          inserter(cont,pos)
+  注意：容器本身应该要支持insert迭代器所调用的函数
+
+
+  back_inserter
+  声明：
+  back_insert_iterator<vector<int> > iter(coll);
+  back_inserter(coll) = 44; //用临时back_inserter变量来安插44
+  注意：只有vector,deque,list,string这些容器支持back_inserter
+       使用插入迭代器插入vector容器时要注意，当心内存重新分配，而造成指向元素的迭代器，引用和指针失效
+  
+  front_inserter
+  声明：
+  front_insert_iterator<list<int> > iter(coll);
+  front_inserter(coll) = 44;   //用临时front_inserter变量来安插44
+  注意：只有deques,lists,forward lists这些容器支持front_inserter
+       安插多个元素时，front_inserter是以逆序方式插入，因为它总是将下一个元素安插在前一个元素的前面
+
+  General_inserter
+  声明：
+  根据两个实参来初始化：容器  待安插的位置(前两个迭代器都只需要容器来初始化就可以了)
+  insert_iterator<set<int> > iter(coll,coll.begin());
+  inserter(coll,coll.end()) = 44;   //用临时eneral_inserter变量来安插44
+  注意：1.General_inserter所有的容器都适用(array和forward lists除外)
+        2.对于关联容器而已，pos位置只是一个提示
+        3.General_inserter会返回被安插的元素的位置(因为deque，string，vector等等容器，安插动作可能会使指向元素的指针，引用，迭代器失效)
+
+3.stream_inserter串流迭代器
+  istream可用来从输入流读取元素
+  ostream可用来从输出流写入元素
+
+  1.ostream
+    ostream可以将赋值动作转换为output动作(所以算法可以用寻常迭代器接口，直接对stream进行涂写操作)
+    声明：
+    声明ostream流需要一个输出流作为实参(对迭代器的赋值，会被输出到这个流中)
+    还有一个可有可无的第二实参为一个字符串，用来分割各元素的分隔符
+    ostream_iterator<int> intWriter(cout,"\n");
+
+    定义：
+    namespace std {
+        template <typename T,
+        typename charT = char,
+        typename traits = char_traits<charT> >
+    class ostream_iterator;
+    }
+
+    ostream的各项操作
+    ostream_iterator<T >(ostream)               //为ostream建立一个ostream迭代器
+    ostream_iterator<T >(ostream,delim)         //为ostream建立一个ostream迭代器，各元素以delim为分隔符，delim为const char*
+    *iter                                       //无作用，返回iter
+    iter = value                                //将value写到ostream(ostream<<value),并输出一个delim为分隔符(如有定义)
+    ++iter                                      //无作用，返回iter
+    iter++                                      //无作用，返回iter
+
+  2.istream
+    istream用来向输入流读取元素(所以算法可以用寻常迭代器接口，直接对stream进行读取操作)
+    但是istream较ostream复杂一些(读取本来就比写入要复杂)
+    1.建立istream迭代器时，你必须使用一个输入流作为实参
+      算法等等调用istream迭代器的，可以从这个输入流中读取数据
+    2.如果读取失败(可能到达文件尾部，也可能读取错误)，数据算法也需要一个读取的终点位置
+      你可以使用一个所谓的处于输入流末尾的迭代器(它以istream的没有任何参数的构造函数生成)
+      只要有任何一次读取失败(包括文件尾部)，所有的istream迭代器都会变成处于输入流末尾的迭代器
+      所以在进行一次读取后，可以拿这个迭代器和输入流末尾的迭代器进行比较(看看此迭代器是否还有效)
+    声明：
+    istream_iterator<int> intReader(cin);
+    istream_iterator<int> intReader();        //处于输入流末尾的迭代器
+
+    定义：
+    namespace std {
+       template <typename T,
+                 typename charT = char,
+                 typename traits = char_traits<charT>,
+                 typename Distance = ptrdiff_t>
+       class istream_iterator;
+   }
+
+   istream的各项操作：
+   istream_iterator<T >()              //建立一个处于输出流末尾的迭代器
+   istream_iterator<T >(istream)       //建立一个迭代器(会立刻从istream里读取一个值)
+   *iter                               //返回此前读取的值
+   iter->member                        //返回此前读取元素的成员
+   ++iter                              //读取下一个值，并返回其位置
+   iter++                              //读取下一个值返回指向迭代器前一个读取的值
+   iter1 == iter2                      //检查iter1和iter2是否相等
+   iter1 != iter2                      //检查iter1和iter2是否不等
+   注意：关于迭代器相等：
+        1.两者都是处于流末尾的迭代器，表示两者相等
+        2.两者都是不处于流末尾的迭代器，且指向相同的stream，表示两者相等
+
+    使用advance()迭代器适配器来使用istream迭代器，可以跳过输入单元(从分隔符来确定一个输入单元的具体内容)
+    使用advance()后一定要先检查istream迭代器是否还有效(对处于流末尾的迭代器使用*，结果是未定义的)
+
+4.搬移迭代器(move)
+  用移动语义代替拷贝语义：
+  std::list<std::string> s;
+  ...
+  std::vector<string> v1(s.begin(), s.end());
+  std::vector<string> v2(make_move_iterator(s.begin()), make_move_iterator(s.end()));
+  注意：
+  1.一般而言，move做同样的事情
+  2.只有当"算法将元素从某个来源区间迁移至某个目标区间"，这样的情况下，move迭代器才有意义
+    (必须保证每个元素只被处理一次，否则，对元素搬移一次以上，结果是未定义的)
+    (元素只被处理一次的迭代器种类为输入迭代器(来源端迭代器)，目的端使用输出迭代器，这时候move迭代器才有意义)for_each()是个例外
+

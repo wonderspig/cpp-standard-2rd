@@ -1,0 +1,110 @@
+1.advance()
+  next()
+  prev()
+  distance()
+  这四个迭代器辅助函数提供了只有随机访问迭代器才有的能力
+  iter_swap()
+  这个迭代器辅助函数允许交换两个迭代器的值
+
+2.advance()
+  允许迭代器一次增加一定数量的值(该值由实参决定)
+  令迭代器一次前进或后退多个元素
+  #include <iterator>
+  void advance (InputIterator& pos, Dist n)
+  注意: 1.迭代器pos前进或后退n个元素
+       2.对双向和随机访问迭代器而言，n可以是负值，表示后退
+       3.Dist是一个模板类型(一般为整数)，所以会使用<,++,--等操作来和0做比较
+       4.对于范围的维护，advance()并不负责，所以如果超出范围，行为是未定义的
+
+此函数采用iterator trait来对增减操作采用最佳方案
+  1.随机访问迭代器就使用pos+=n，如此具有常量复杂度
+  2.其他类型迭代器使用++,--等操作，因此为线性复杂度
+
+注意：如果在范型编程中使用advance()，虽然可以达到最佳的兼容性，但是，会不知不觉中降低性能
+
+具体应用，详见：advance1.cpp
+
+3.next() prev()
+  这两个函数为c++11新增的，允许你前进或后退迭代器的位置
+  (相当于++,--)
+
+  #include <iterator>
+  ForwardIterator next (ForwardIterator pos)
+  ForwardIterator next (ForwardIterator pos, Dist n)
+  注意：1.导致向前迭代器pos前进1个或n个位置
+       2.对双向和随机访问迭代器而言，n可以是负值，表示后退
+       3.dist的类型是td::iterator_traits<ForwardIterator>::difference_type
+       4.其内部调用临时对象advance()
+       5.对于范围的维护，next()并不负责，所以如果超出范围，行为是未定义的
+
+  #include <iterator>
+  BidirectionalIterator prev (BidirectionalIterator pos)
+  BidirectionalIterator prev (BidirectionalIterator pos, Dist n)
+  注意：1.导致双向迭代器pos后退1个或n个位置
+       2.n为负值时，导致向前移动
+       3.dist的类型是td::iterator_traits<ForwardIterator>::difference_type
+       4.其内部调用临时对象advance(pos,-n)
+       5.对于范围的维护，prev()并不负责，所以如果超出范围，行为是未定义的
+
+
+
+应用场景：
+  1.对于向前链表，这非常有用，我们可以先检查迭代器是否到达了末尾，再检查下一个位置是不是末尾
+    满足条件后，再进行迭代器的移动
+    auto pos = coll.begin();
+    while (pos != coll.end() && std::next(pos) != coll.end()) {
+        ...
+        ++pos;
+    }
+    c++11之前，必须使用一个临时变量才能做到这些
+
+
+    2.如果在array，vector，string这三个容器中
+    ++begin()通不过编译(因为可能实现为寻常指针，导致无法修改基础类型的临时变量)
+    就可以使用next() prev()
+
+
+    3.next()可以搭配"向前链表"和"before_begin()"来实现遍历
+
+
+
+4.distance()
+  用来处理两个迭代器之间的距离
+  #include <iterator>
+  Dist distance (InputIterator pos1, InputIterator pos2)
+  注意：
+  1.返回两个迭代器之间的距离
+  2.两个迭代器必须指向同一个容器
+  3.如果不是随机访问迭代器，pos1的位置必须在pos2位置之前(会造成未定义的行为)
+  4.返回的类型是td::iterator_traits<ForwardIterator>::difference_type
+
+此函数采用iterator trait来对距离的计算采用最佳方案
+  1.随机访问迭代器就使用pos2－pos1，如此具有常量复杂度
+  2.其他类型迭代器使用++,--等操作，因此为线性复杂度
+
+实例详见：distance.cpp
+
+如果在范型变成中使用distance()
+1.使用distance()可以达到最佳的兼容性，但是会不知不觉中降低性能(如果不是随机访问迭代器)
+2.需要特别注意，如果不是随机访问迭代器
+  pos1的位置必须在pos2位置之前,否则结果是未定义的
+  如果实在无法确定，可以计算每个迭代器到起点begin()的距离，用这个距离来判断，哪个pos位置在前
+  当然，如果两个迭代器指向的是不同的容器，那你怎么都不可能避免"未定义的行为了"
+
+
+5.iter_swap()
+  交换两个迭代器所指向的元素值
+  #include <algorithm>
+  void iter_swap (ForwardIterator1 pos1, ForwardIterator2 pos2)
+  注意：1.交换两个迭代器pos1和pos2所指向的元素值
+       2.容器类型不必相同，但是所指向的两个值必须能够互相赋值
+
+实例详见：iterswap1.cpp
+
+
+
+
+
+
+
+

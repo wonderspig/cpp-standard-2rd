@@ -1,0 +1,14 @@
+foe_each()
+算法允许以不同的方式访问，处理，修改每一个元素(C++11开始，区域for循环比for_each更方便更自然)
+
+for_each (InputIterator beg, InputIterator end, UnaryProc op)
+1.对begin，end区间的每一个元素，调用op
+2.返回算法内部op的最终状态
+3.op可以改动元素
+4.复杂度线性
+
+
+
+1.用for_each打印所有元素，详见：foreach1.cpp
+2.用for_each改变每一个元素，详见：foreach2.cpp
+3.利用for_each的返回值，详见：foreach3.cpp

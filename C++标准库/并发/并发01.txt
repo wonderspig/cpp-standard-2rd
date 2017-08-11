@@ -1,0 +1,452 @@
+并发：
+c++11之前，不论语言或标准库，对并发处理没有任何支持
+从c++11开始，语言自身和标准库都得到强化，可支持并发编程
+1.语言核心定义了一个内存模型，保证"被两个不同线程使用"的两个不同对象时，他们彼此独立
+  并定义了关键字thread_local，用来定义"冰凉带有thread专属值"
+2.标准库提供的支持，允许你启动多线程(包括传递实参，返回数值，跨线程边界传递异常，同步化等等)
+  能够让我们控制流程，和数据访问的同步
+
+1.高级接口：async()和future<>
+  一、async()和future的第一个用例
+  1.async()：提供一个接口，让一个调用对象(函数指针，成员函数，函数对象，Lambda等等)，如果可能的化在后台运行，成为一个独立线程
+  2.class future<>：允许你等待线程结束，并获得其结果(一个返回值，或许是一个异常)
+
+  实例：并行计算两个函数的总和：
+       func1() + func2()
+       详见：async1.cpp
+       分析：如下调用是并行调用func1() + func2()
+			std::future<int> result1(std::async(func1));
+			int result2 = func2();
+			int result = result1.get() + result2;
+			1.std::async(func1)会把调用对象func1，尝试启动到后台(另开一个线程来跑func1)
+			2.std::future<int> result1(std::async(func1));
+			  把跑这个线程的结果值，赋值给future对象(可能是运行后的返回值，也可能是异常)
+			  future对象对象是必要的有两个原因：
+			  1.你必须知道后台运行线程的运行结果(可能是运行后的返回值，也可能是异常)
+			    声明的时候，用返回类型特话它，如果没有返回类型，就使用future<void>来特化
+			  2.后台线程只是尝试开启，如果事实没有开启，需要这个future对象来强制开启
+			    (所以，即使泥堆运行的结果不感兴趣，你还是需要这个future对象)
+			  注意：1.这样就能在线程和返回的future对象之间交换数据，二者都指向一个"共享状态"
+			  	   2.一般来说，使用auto来声明future类型的
+			  	     auto result1(std::async(func1));
+			3.对future对象调用成员函数get，获得保存在其中结果(返回值或者异常)
+			  int result = result1.get() + result2;
+			  调用future对象的成员函数get()后，以下三件事情会发生：
+			  1.如果成功开启后台线程，并且线程运行完毕，那么成员函数get获得返回值
+			  2.如果成功开启线程，但是线程还没有运行完毕，那么get会等待阻塞，知道后台线程运行完毕
+			  3.如果后台线程没有启动，那么等于一个同步调用，会启动这个调用对象，并等待它执行完毕
+			  注意：这保证了，在单线程环境中，后台线程无法启动的情况下，代码也能正常工作
+
+			  也就是说，就算async()尝试开启失败了，最多也就推迟到你明确要求要其结果(调用成员函数get()，或者wait())
+			  允许你以：
+			  std::future<int> result1(std::async(func1));
+			  ...
+			  result1.get()
+			  这种方式，优化程序
+			4.使用多线程程序的最基本做法：
+			  1.包含头文件<future>
+			  2.把需要并行运行的函数，传递给async()
+			  3.将执行结果赋值给future对象
+			  4.当你明确需要该后台程序的结果的时候，调用future对象的成员函数get()
+			  注意：1.为了达到优化并行的最大效果，应该遵守早调用，晚返回的原则(只有必要时才使用get索取结果)
+			       2.传递给async()的可以使任意的调用对象(函数指针，成员函数，函数对象，Lambda等等)
+
+  1.launch策略
+  	1.std::launch::async：
+  	  你可以强迫async()，不推迟目标调用对象的执行，方法是传递一个额外的参数：
+  	  std::future<long> result1= std::async(std::launch::async, func1); 	  
+  	  注意：async()方式启动的后台任务，如果主线程先结束(离开main)
+  	       那么进程并不会直接退出，而是等待所有的子线程全部结束后，才会离开main
+
+  	  带std::launch::async这个参数的async()，如果你不把返回值赋值future对象
+  	  则会阻塞到调用对象执行完毕，成为完完全全的一个同步调用
+
+  	2.std::launch:deferred：
+  	  你可以强迫async()，推迟目标调用对象的执行，方法是传递一个额外的参数：
+  	  std::future<long> result1= std::async(std::launch::async, func1);
+  	  注意：1.这会推迟调用对象的执行，直到调用get
+  	  	   2.这个策略的主要用处是：
+  	  	     1.缓式执行
+  	  	     2.在没有竞争环境的前提下，模拟async()环境的调试
+
+  2.处理异常
+    如果后台线程没有成功执行，那么future对象会保存的将不是返回值，而是异常
+    future对象调用get()成员函数的时候，也会处理异常
+    如果线程发生异常，该异常不会在线程内被处理，而是会在get()的时候，被再次抛出(由主线程处理)
+    (异常的处理其实是同步方式的)
+    实例详见：async2.cpp
+    分析：在一个无限循环中，对链表进行后插操作，出现bad_alloc时不捕获，异常就会保存下来，在调用get()的时候，传递给主线程
+         由主线程处理
+
+  3.等待和轮询
+    get()：
+    一个future对象只能调用成员函数get()一次，之后就处于无效状态(这种状态可以针对future对象调用vaild来检测)
+    wait()：
+    wait()成员函数可以被调用一次以上，可以用来等待后台线程的完成，但是不需要其处理结果
+    (也可以结合一个时间段，或时间点来限制等待时间)
+    1.时间段的wait()函数(一段时间之后，启动future对象内的后台线程)：
+		std::future<...> f(std::async(func)); 
+		...
+		f.wait_for(std::chrono::seconds(10)); 
+    2.时间点的wait()函数(在到达这个时间点以后，启动future对象内的后台线程)：
+    	std::future<...> f(std::async(func)); 
+    	... 
+    	f.wait_until(std::system_clock::now()+std::chrono::minutes(1));
+    分析：不论wait_for()还是wait_until()都返回以下三个返回值之一：
+    	  1.std::future_status::deferred：如果aysnc()延缓了启动，且程序中也完全没有启动，那么这两个函数立刻返回
+    	  2.std::future_status::timeout：后台线程已经启动，但尚未结束(wait的时间已经逾期)
+    	  3.std::future_status::ready：操作已经完成
+
+    实例：
+    如果在规定时间内，能计算出精确值，那是最好，否则，就用一般值
+	int quickComputation();
+	int accurateComputation();
+	std::future<int> f;
+	int bestResultInTime()
+	{
+		auto tp = std::chrono::system_clock::now() + std::chrono::minutes(1);
+
+		f = std::async (std::launch::async, accurateComputation); 
+		int guess = quickComputation();
+
+		std::future_status s = f.wait_until(tp);
+		if (s == std::future_status::ready) {
+			return f.get();
+		}
+		else {
+			return guess;
+		} 
+	}
+	注意：1.std::future<int> f 如果声明在内部，那么万一后台的accurateComputation没有完成
+			那么操作将会在离开函数bestResultInTime()之前阻塞，直到accurateComputation完成，才能离开
+			(等于没有提高效率，不管怎么样，都要等演算精确值的函数完成，才能离开bestResultInTime()函数)
+
+	可以传入一个时间段或者时间点，来轮询是否有后台任务被启动，或后台任务是否在运行中
+	future<...> f(async(task));
+	...
+	while (f.wait_for(chrono::seconds(0) != future_status::ready)) {
+		...
+	}
+
+	有两个可能导致无限循环的原因：
+	1.如果async()推迟了调用，那这个循环永远都不会结束
+	  所以，如果没有用std::launch::async强制调用async()
+	  那就应该明确检查wait_for()是否返回std::future_status::deferred:
+	  future<...> f(async(task));
+	  ...
+
+	  if (f.wait_for(chrono::seconds(0)) != future_status::deferred) {
+		  while (f.wait_for(chrono::seconds(0) != future_status::ready)) {
+		  	...
+		  }
+	  }
+	  ...
+	  auto r = f.get(); 
+
+	2.轮询会导致线程完全占用处理器，其他线程没有空来备妥future
+	  可以在循环中使用：
+	  std::this_thread::yield();
+	  或者
+	  sleep();
+
+	  注意：如果在等待期间系统时间进行了调整，wait_for() 和 wait_until()的行为往往不同
+
+  二、实例：等待两个task
+    详见：async3.cpp
+    分析：这是一个同时等待两个后台线程的例子
+    while (f1.wait_for(chrono::seconds(0)) != future_status::ready && 
+    	   f2.wait_for(chrono::seconds(0)) != future_status::ready) {
+		...
+		this_thread::yield(); // hint to reschedule to the next thread 
+	}
+	这个循环如果在两个后台线程都没有被启动的情况下，永远不会成立，所以，在这之前，要先判断
+	至少有一个操作未被推迟
+	if (f1.wait_for(chrono::seconds(0)) != future_status::deferred || 
+		f2.wait_for(chrono::seconds(0)) != future_status::deferred) {
+		...
+	}
+	另一种方案是：
+	async()的时候，带上std::launch:async这个参数，强制启动后台线程
+
+	1.传递实参
+	  按值传递
+	  1.使用一个，并将它调用后台函数
+	    auto f1 = std::async([]{ doSomething(’.’); });
+	  2.传递在async()之前就存在的实参
+		char c = ’@’;
+		auto f = std::async([=]{ 
+								doSomething(c);  
+							   });
+		注意，这是按值传递
+	  3.async()提供了额外的参数，给你传递实参：
+	    char c = ’@’;
+		auto f = std::async(doSomething,c);
+
+	  按引用传递(同理)
+		char c = ’@’;
+		auto f = std::async([&]{ doSomething(c); });
+
+		char c = ’@’;
+		auto f = std::async(doSomething,std::ref(c));
+	  注意：用引用的方式传递是非常危险的行为，除非你确切的直到自己在干什么，否则不雅这么做
+
+  三、shared future
+    一般的future对象，只能调用一次get()，成员函数，第二次调用，行为是未定义的
+    (有可能抛出future_error异常)
+
+    class std::shared_future可以多次处理"并发运行之未来结果"(多次调用get()得到相同的结果，或抛出同一个异常)
+    (当多个线程都想处理这份结果的时候)
+
+    详见：sharedfuture1.cpp
+    分析：声明shared future
+    	 shared_future<int> f = async(queryNumber);
+    	 这个f可以不止一次的调用成员函数get()
+
+    	 为了使用auto，可以进行如下调用：
+    	 auto f = async(queryNumber).share();
+    	 
+    	 future保存"共享状态"(如果推迟启动，调用对象本身也保存在future中，用来对它强制启动)
+    	 所有"共享状态"都是由async()建立的(如果推迟启动，调用对象本身也是由async()建立的)
+
+    	 future 和 shared_future 的声明式存在小小的差异
+    	 class future：
+		T future<T>::get();
+		T& future<T&>::get();
+		void future<void>::get();
+		注意：第一形式返回执行结果的一份拷贝(移动拷贝)
+		 shared_future：
+		const T& shared_future<T>::get();
+		T& shared_future<T&>::get();
+		void shared_future<void>::get();
+		注意：1.第一形式返回一个引用，指向存放于"共享状态"的结果值
+			 2.所以如果修改shared_future的返回值，会造成"生命周期"和"数据竞争"主题上的某些风险
+
+    shared future的实参传递
+    按引用的方式传递shared future对象(声明的时候按引用方式声明，传参的时候使用std::ref())
+    例如：
+    void doSomething (char c, const shared_future<int>& f)
+	auto f1 = async(launch::async,doSomething,’.’,std::ref(f));
+	注意：1.这样不再是使用多个shared future对象调用get()成员函数，而是一个shared future对象调用多次get()成员函数
+		 2.这么做风险较高：1.调用者必须保证f的寿命比被启动的线程更长
+		 				 2.如果你在线程中对f做出比读更多的操作，要有一定的同步机制来防止数据竞争
+
+2.底层接口
+  1.Class std::thread
+    声明一个std::thread对象，用"调用对象"作为它的初始实参
+    void doSomething();
+	std::thread t(doSomething);
+	t.join(); 
+	注意：构造实参可以是任何调用对象，调用对象的参数，尽量使用值传递
+
+	底层接口std::thread和高级借口async()的差别
+	1.std::thread没有发射策略，始终强制启动调用对象为后台线程
+	  如果无法做到，则抛出std::system_error异常，并携带错误码resource_unavailable_try_again
+	2.没有接口可以获得线程的结果，唯一可获得的是线程ID
+	3.如果在后台线程内部发生异常，那么程序会立刻终止并调用std::terminate()
+	  如果希望异常传递至线程外部，那么必须使用exception_ptrs
+	4.你必须明确声明是否想要等待线程结束(调用join()来等待，调用detach来卸离线程)
+	  如果你在线程寿命结束前，或者对对对象std::thread移动赋值前，没有明确声明
+	  程序会终止，并调用std::terminate()
+	5.线程在后台运行的过程中，main()函数终止了，此时程序不会等待后台线程结束，而是会直接退出
+
+	实例详见：thread1.cpp
+	分析：1.每个main都有异常捕获的try，catch的句子是因为：
+		    1.创建线程的动作有可能因失败而抛出异常std::system_error，并携带错误码resource_unavailable_try_again
+		    2.在后台线程中，如果不捕获异常，会导致程序的异常终止(底层借口捕获捕获异常并保存到"共享状态"中)
+		  2.程序可以演示main函数终止时，并不会等待后台进程运行完毕
+
+	1.卸离后的线程
+	  卸离后线程的问题：
+	  1.卸离后的线程访问非本地的变量(以引用的方式传递变量给线程)，因为卸离后的线程没有任何手段可以控制
+	    那引用的生命周期就不知道该保持多久
+	    (强烈建议按值传递变量给线程)
+	  2.全局变量和静态变量和按引用传递，具有相同的问题
+
+	  分离线程的一般性准则：
+	  1.卸离线程应该只访问本地拷贝
+	  2.如果卸离线程一定要使用全局变量或静态变量，那么：
+	    必须保证所有卸离线程结束前，不能销毁卸离线程使用的全局变量和静态变量
+	    (卸离线程无法知道它结束的时间，和运行的结果)
+	    1.一种方法时使用条件变量，给主线程发信号，说自己已经结束了
+	    2.第二种方法是使用quick_exit()来结束程序
+	      (不调用全局变量和静态变量的析构函数而结束程序)
+
+	  std::cin, std::cout, std::cerr及其他stream对象，保证了程序运行期间不会被销毁
+	  所以卸离线程访问这些变量不会有不可预期的行为
+
+	  总结：终止分离线程的唯一安全的办法就是使用at_thread_exit()系列的函数
+	       这会让main强制等待分离线程的结束
+	       (要么就像某位专家所言，永远不要使用卸离线程)
+
+	2.线程ID
+	  线程ID的类型是std::thread::id
+	  std::thread::id有一个默认的构造函数，用来产生一个no thread
+
+	  取得线程ID的方法是：1.要么借由线程对象Class std::thread的成员函数get_id()
+	  						std::thread t;
+	  						t.get_id()；
+	  					2.要么就是在线程内部使用名称空间this_thread中的get_id()
+	  					    this_thread::get_id()
+
+      唯一可以对线程ID进行的有效操作是：比较，打印(绝不应该有其他的假设，例如具体数字0，1等等)
+      所以，唯一识别线程的方法就是把线程ID保存下来
+
+      注意：已经结束的线程的线程ID，可能会被系统拿去重复使用
+
+  2.Promise
+    底层接口的情况下，如何在线程之间传递参数和处理异常，使用class std::promise
+    std::promise和std::future是配对兄弟，都是关于保存"共享状态"的
+    std::future用来取回数据或异常
+    std::promise用来提供数据或异常
+
+    实例详见：promise1.cpp
+    分析：1.声明std::promise的时候可以根据返回类型进行特化(和future类似)
+    		声明为void则表示没有返回值
+    		std::promise内部会有一个"共享状态"(和future不一样的是，这个"共享状态不是用来被读取的，而是用来被存放的")
+    	 2.用引用的方式传递std::promise进后台线程(保证std::promise的状态可以被改变)
+    	 3.在线程内部使用set_value()设置返回值或者set_exception()设置异常
+    	   (只要设置了返回值或者异常，那么std::promise的状态将会变成ready，表示可以用来生成future，从而被读取)
+    	   (要传递异常必须使用std::current_exception()，它会把异常转换为类型std::exception_ptr，从而保存到std::promise中)
+    	 4.只要std::promise的状态变成了ready
+    	   就可以使用get_future()成员函数来生成拥有相同"共享状态"的future
+    	   然后通过future来取得信息
+    	 5.通过调用future的成员函数get()来取得返回值或者异常
+    	 	如果std::promise并没有变成ready，那么成员函数get()会阻塞直到std::promise变成ready
+    	 	(std::promise被设置了值，或者被设置了异常)
+    	 6.std::promise的状态ready了并不代表线程已经结束了(后面可能还要继续执行其他语句)
+    	   要确保std::promise变成ready后线程已经结束，应该使用：
+    	   1.set_value_at_thread_exit()来设置值
+    	   2.set_exception_at_thread_exit()来设置异常
+    	 注意：1.单线程中也可以使用std::promise存储共享状态，std::future来读取共享状态的模型
+    	 	  2.拒不允许在std::promise中既存储数值，又存储异常
+    	 	    那会抛出std::future_errc::promise_already_satisfied异常
+
+  3.Class packaged_task<>
+    packaged_task<>可以在后台开启线程，但是并不立刻启动
+    而是在你调用packaged_task<>对象，并传入实参的时候，再开启后台任务
+    double compute (int x, int y);
+	std::packaged_task<double(int,int)> task(compute);
+	std::future<double> f = task.get_future();
+	task(7,5);
+	...
+	double res = f.get();
+	注意：直到task(7,5);这句语句，才真正开启后台线程
+	     能够读取后台线程的只有future对象
+	     Class packaged_task<>也存在一个get_future()成员函数，来取得拥有相同"共享状态"的future对象
+
+3.细说启动线程(一些总结)
+    线程接口层级，见图：18.1 线程接口层级
+    分析：有数个层面可以启动线程，并处理其返回值或异常
+      1.class thread：可以启动线程
+                      可以共享变量(全局变量或static变量，或用实参传递变量)
+                      可以返回异常，可利用类型std::exception_ptr来处理
+                      (由std::current_exception()返回，被std::rethrow_exception()重新抛出)
+      2.共享状态："共享状态"可以很方便的处理返回值或者异常，用promise建立一个"共享状态"，再用future来处理它
+      3.高层接口的packaged_task或async()，会自动建立"共享状态"，通过return语句或者一个未捕获的异常而设置妥当
+      4.packaged_task允许建立一个带着"共享状态"的对象，用这个对象我们可以明确声明什么时候启动这个后台线程
+      5.如果使用async()，我们不需要关心线程什么时候启动，只需要再想直到线程运行结果的情况下，调用get()成员函数
+
+    1.共享状态Shared States
+      中心概念"共享状态"：1.其中保存了启动及控制后台的机能(启动线程，获得结果等等)
+                        2.能够处理线程运行的结果，当中存放了线程的返回值或一个异常
+                        3.一旦有返回值或者异常存放如"共享状态"，则共享状态就变为ready
+                        4."共享状态"通常是一个引用计数，当以后一个使用者释放时，就被销毁
+
+  1.async()的几种形式
+    async()只是再可能的情况下，启动一个后台线程，有三种形式：
+    1.future async (std::launch::async, F func, args...)
+      立即启动一个后台线程
+    2.future async (std::launch::deferred, F func, args...)
+      强制推迟启动一个后台线程，直到调用成员函数get()
+    3.future async (F func, args...)
+      相当于std::launch::async|std::launch::deferred，尝试启动一个后台进程
+
+  2.future
+    1.future对象是用来读取共享状态的，采用get()成员函数，或wait()成员函数来读取共享状态
+      (读取的"共享状态"，可能是返回值，可能是异常，但不会两者都是)
+    2.future是被async()返回出来的，后台线程可能等到调用get()或者wait()时才开始运行
+    3.future是被promse或std::packaged_task创建出来的，那么可能future对象内的成果尚未存在
+      但furture仍然保存着"生成该成果的"每一件必要的东西
+    4.future的成果只能取出一次(只能够调用get()或wait()一次)，一次以上的取出会造成不可预期的行为
+    5.get()成员函数的返回值，是future的特化类型
+      (其中void表示无返回值，模板类型为引用，返回的就是个引用，别的类型返回的时copy)
+    6.future无法拷贝，所以不存在两个future对象拥有同一个"共享对象"(future提供move语义)
+    7.future可以通过share()成员函数，将future转换成share_future
+      (share_future是可以拷贝或者共享的)
+    8.最后一个future析构函数运行的时候，如果还有future代表的后台线程尚在运行，future会阻塞等到这个后台线程运行完成
+    接口见：表18.1 Class future的操作函数 P976
+
+  3.share_future
+    share_future和future有着相似的接口和语义，但差异如下
+    1.可以多次调用get()成员函数
+    2.支持copy语义
+    3.share_future的get()是一个const成员函数，返回的是引用(对share_future对象的返回值的修改要格外小心)
+      future的get()函数的返回值是一个移动语义的copy
+    4.不提供share()成员函数
+    注意：share_future的返回值是一个引用，要注意它的生命周期，对返回值的修改要注意数据竞争(返回的异常也是一样的情况)
+
+  4.Class std::promise
+    1.std::promise和future一样，也是拥有一个共享状态的，但std::promise的"共享状态"的提供者
+      把线程中运行后产生的结果放入std::promise中，再把std::promise转换成future来读取其中的"共享状态"
+    2.只要再线程中对std::promise进行过赋值，那std::promise就是ready，就可以转换成future后读取其中的"共享状态"
+      ()
+    3.如果对std::promise调用超过一次的get_future()，也就是转换成future对象，就会抛出std::future_error异常
+      并携带错误码std::future_errc::future_already_retrieved
+    4.如果没有相应的"共享状态"在std::promise中，对它调用get_future()，使它转换成future对象
+      则会抛出std::future_error异常，并携带错误码std::future_errc::no_state
+      注意：std::promise中所有用来设置异常和返回值的成员函数，都是线程安全的
+    接口见：表18.2 Class promise的操作函数 P978
+
+  5.Class std::packaged_task
+    1.允许创建线程后稍后启动线程，通过调用对象来初始化std::packaged_task，然后通过调用operator()来开启线程
+      最后取得future来获得处理结果
+    2.如果调用operator()或get_future()却没有可用状态
+      那会抛出std::future_error异常，并携带错误码std::future_errc::no_state
+    3.第二次调用get_future()
+      会抛出std::future_error异常，并携带错误码std::future_errc::future_already_retrieved.
+    4.第二次调用operator()
+      会抛出std::future_error异常，并携带错误码std::future_errc::promise_already_satisfied
+    5.析构函数和reset成员函数会抛弃"共享状态"(会释放共享状态)
+      如果共享状态还没有ready，就将它变成ready
+      并抛出std::future_error异常，并携带错误码std::future_errc::broken_promise，保存在"共享状态"中
+    6.调用make_ready_at_thread_exit()，来确保退出线程并设置好"共享状态"
+    接口见：表18.3 Class std::packaged_task的操作函数 P979
+
+  6.Class std::thread
+    1.std::thread对象用来启动和表现线程，这些对象和操作系统的线程接口呈现一一对应的关系
+    2.std::thread对象和一个调用对象绑定起来(这个调用对象就以后台线程的行为跑起来了)
+    3.你必须在线程寿命终结之前，或者std::thread被移动赋值之前，明确声明：
+      1.join()  关心运行结果
+      2.detach() 分离线程，不关心结果
+      否则，线程就会终止，同时调用td::terminate()
+    4.可以通过对std::thread(已关联好的)
+      1.调用成员函数joinable()，判断线程是否已关联
+      2.调用成员函数get_id()来获得线程ID，不同于std::thread::id()的线程ID
+      注意，线程ID的类型为std::thread::id，默认构造函数生成无线程的特殊值，用来判断是不是一个有效线程
+    5.唯一可对线程ID做的事情是比较，和打印(不能对线程ID有其他任何的猜想，如具体数值什么的)
+    6.分离线程不能访问生命已经结束的对象(全局变量或者静态变量，或者按引用传递的变量等等)
+    接口见： 表18.4 Class std::thread的操作函数
+
+  7.Namespace this_thread
+    提供线程专属的全局函数：
+    this_thread::get_id()           获得当前线程ID
+    this_thread::sleep_for(dur)     将某个线程阻塞dur时间段
+    this_thread::sleep_until(tp)    将某个线程阻塞到时间点tp
+    this_thread::yield()            让下一个线程执行
+    注意：当时间调整时，sleep_for和sleep_until的行为往往不同
+         yield() 用来放弃当前的cpu时间片段，用来让下一个线程执行
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

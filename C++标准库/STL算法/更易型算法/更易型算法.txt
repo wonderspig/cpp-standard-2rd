@@ -1,0 +1,152 @@
+更易型算法：
+1.运用"迭代器遍历序列"的过程中，直接改动
+2.将元素从源区间复制到标的区间的过程中加以变动
+注意：1.目标区间不可以是有序关联容器和无序关联容器
+     2."单一目标区间"的算法，都返回区间内"最后一个被复制的元素"的下一个位置
+
+1.复制元素
+  OutputIterator
+  copy (InputIterator sourceBeg, InputIterator sourceEnd,
+        OutputIterator destBeg)
+  OutputIterator
+  copy_if (InputIterator sourceBeg, InputIterator sourceEnd,
+           OutputIterator destBeg, UnaryPredicate op)
+  OutputIterator
+  copy_n (InputIterator sourceBeg,
+          Size num, OutputIterator destBeg)
+  BidirectionalIterator2
+  copy_backward (BidirectionalIterator1 sourceBeg,
+                 BidirectionalIterator1 sourceEnd, BidirectionalIterator2 destEnd)
+  1.上述四个算法都将源区间sourceBeg，sourceEnd中的所有元素复制到以destBeg为起点的或以destEnd为终点的目标区间
+  2.都返回被复制元素的下一个位置(也就是第一个未被覆盖的元素位置)
+  3.关于copy()，destBeg不可处于区间sourceBeg，sourceEnd内
+  4.关于copy_if()，源区间与目标区间不可重叠
+  5.关于copy_backward()，destEnd不可处于区间sourceBeg，sourceEnd内
+    注意：关于copy()正向遍历，而关于copy_backward()反向遍历(只有当源区间和目标区间重叠时，这个不同点才会导致一些问题)
+         1.若要把一个子区间复制到前端，应使用copy()，因为对于copy()而言，destBeg应该在sourceBeg之前
+         2.若要把一个子区间复制到后端，应使用copy_backward()，因为对于copy_backward()而言，destEnd位置应该在sourceEnd之后
+         所以，只要第三实参位于前两个实参之中，就应该使用另一个算法。
+
+  copy()的若干用法，详见：copy1.cpp
+  copy()和copy_backward()的区别，详见：copy2.cpp
+  使用copy()将标准输入传送到标准输出，详见：copy3.cpp
+
+2.搬移元素(请和copy对应)
+  OutputIterator
+  move (InputIterator sourceBeg, InputIterator sourceEnd,
+        OutputIterator destBeg)
+  BidirectionalIterator2
+  move_backward (BidirectionalIterator1 sourceBeg,
+                 BidirectionalIterator1 sourceEnd, BidirectionalIterator2 destEnd)
+  1.上述两个算法将源区间sourceBeg，sourceEnd中的所有元素搬移到以destBeg为起点的或以destEnd为终点的目标区间
+  2.他们会堆每一个元素调用*destElem=std::move(*sourceElem)
+    (如果元素提供move语义，那么源端的元素从此不再明确，它们不该再被使用)
+    (如果元素未提供move语义，那么执行的将是copy语义，其行为和copy()与copy_backward()一样)
+  3.都返回被复制元素的下一个位置(也就是第一个未被覆盖的元素位置)
+  4.关于move()，destBeg不可处于区间sourceBeg，sourceEnd内
+  5.关于move_backward()，destEnd不可处于区间sourceBeg，sourceEnd内
+    注意：关于move()正向遍历，而关于move_backward()反向遍历(只有当源区间和目标区间重叠时，这个不同点才会导致一些问题)
+         1.若要把一个子区间复制到前端，应使用move()，因为对于move()而言，destBeg应该在sourceBeg之前
+         2.若要把一个子区间复制到后端，应使用move_backward()，因为对于move_backward()而言，destEnd位置应该在sourceEnd之后
+         所以，只要第三实参位于前两个实参之中，就应该使用另一个算法。
+
+  对move的使用，详见：move1.cpp(copy1.cpp的改进版本，允许再提供move语义的情况下，使用move语义)
+
+3.转换和结合元素
+  算法transform()提供以下两个能力：
+  1.第一种形式又4个实参，把来源区的元素转换到目标区，也就是元素的修改和复制一气呵成
+  2.第二形式有5个实参，把两个来源序列中的元素合并，将结果写入目标区
+
+
+  1.转换元素
+  OutputIterator
+  transform (InputIterator sourceBeg, InputIterator sourceEnd,
+             OutputIterator destBeg, UnaryFunc op)
+  1.针对源区间sourceBeg，sourceEnd中的每一个元素调用op，并将结果写到以destBeg未起始的目标区间中
+  2.sourceBeg和sourceEnd可以完全相同
+
+  4个实参的transform用法，详见：transform1.cpp
+
+
+  2.将两序列元素结合
+  OutputIterator
+  transform (InputIterator1 source1Beg, InputIterator1 source1End,
+             InputIterator2 source2Beg, OutputIterator destBeg, BinaryFunc op)
+  1.针对元素区间sourceBeg1，sourceEnd1，以及从source2Beg为起始的元素区间的对应元素，调用op，并将结果写入以destBeg为起始的目标区间内
+  2.源区间sourceBeg1，sourceEnd1和以destBeg为起始的目标区间可以相同
+
+  5个实参的transform的用法，详见：transform2.cpp
+
+4.互换元素
+  ForwardIterator2
+  swap_ranges (ForwardIterator1 beg1, ForwardIterator1 end1,
+               ForwardIterator2 beg2)
+  1.将区间beg1，end1内的元素和以beg2为起始的区间内的元素互换
+  2.两个区间不得重复
+
+  swap_ranges的用法，详见：swapranges1.cpp
+
+5.赋值
+  1.赋予相同数值
+  void
+  fill (ForwardIterator beg, ForwardIterator end,
+        const T& newValue)
+  void
+  fill_n (OutputIterator beg, Size num,
+          const T& newValue)
+  1.fill()是将区间beg，end中的每一个元素都赋予新值newValue
+  2.fill_n()是将区间从beg开始的num个元素，赋予新值newValue(C++11规定，num可以为负数，效果是该函数不做任何事情)
+
+  fill()和fill_n()的用法，详见：fill1.cpp
+
+  2.赋予新生值
+  void
+  generate (ForwardIterator beg, ForwardIterator end,
+            Func op)
+  generate_n (OutputIterator beg, Size num,
+              Func op)
+  1.调用op产生新值，并赋值给区间beg，end中
+  2.调用op产生新值，并将它赋值给以beg为起始的区间内的前num个元素(C++11规定，num可以为负数，效果是该函数不做任何事情)
+
+  用generate()和generate_n()来安插和赋值若干随机数，详见：generate1.cpp
+
+  3.赋予一系列递增值
+  void
+  iota (ForwardIterator beg, ForwardIterator end,
+        T startValue)
+  1.依序给beg，end区间内赋值startValue，startValue+1，startValue+2....
+
+  如何使用iota，详见：iota1.cpp
+
+6.替换元素
+  1.替换序列内的元素
+  void
+  replace (ForwardIterator beg, ForwardIterator end,
+           const T& oldValue, const T& newValue)
+  void
+  replace_if (ForwardIterator beg, ForwardIterator end,
+              UnaryPredicate op, const T& newValue)
+  1.replace()将beg，end区间内每一个与"oldValue相等"的元素，替换为newValue
+  2.replace_if()将beg，end区间内每一个元素，令一元判断式op的结果为true，则替换为newValue
+
+  replace()和replace_if()的用法，详见：replace1.cpp
+
+  2.复制并替换元素
+  OutputIterator
+  replace_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+                OutputIterator destBeg,
+                const T& oldValue, const T& newValue)
+  OutputIterator
+  replace_copy_if (InputIterator sourceBeg, InputIterator sourceEnd,
+                   OutputIterator destBeg, UnaryPredicate op, const T& newValue)
+  1.replace_copy()是replace和copy的组合，它将源区间sourceBeg，sourceEnd的元素复制到以destBeg为起点的目标区
+    同时，将其中与oldValue相等的值，替换为newValue
+  2.replace_copy_if()是copy与replace_if的组合，它将源区间sourceBeg，sourceEnd的元素复制到以destBeg为起点的目标区
+    同时，将其中令一元判断式的结果为true的元素，替换为newValue
+
+  replace_copy()与replace_copy_if的用法，详见：replace2.cpp
+
+
+
+
+

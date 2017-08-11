@@ -1,0 +1,47 @@
+1.连续两个尖括号时当中不再需要空格
+  C++98: vector<list<int> >
+  C++11: vector<list<int>>
+2.空指针使用nullptr，不再使用0或者NULL
+3.用auto完成自动类型推导
+4.统一初始化和初值列，也就说，可以使用大括号来初始化一切变量，数组和结构体等等
+  降低精度或者造成数值变动，对大括号而言时不成立的
+  自定义类型中，初值列的构造函数的优先级高于指明实参个数的构造函数
+5.范围for循环
+  举例：
+  std::vector<double> vec;
+  for(auto& elem : vec){
+  		elem *= 3;
+  }
+6.move语义和右值引用
+  std::move()函数可以转换变量为右值引用
+7.Raw String Literal(新式字符串字面常量)
+
+  寻常字面常量："\\\\n"
+  Raw String Literal(新式字符串字面常量)：R"\\n"
+  (完整)Raw String Literal(新式字符串字面常量)：R"nc(....)nc"  //此种完整模式允许在...中写入()
+8.关键字noexcept：表示某个函数不会抛出异常
+9.关键字constexpr：编译期运算
+  例如：
+  std::array<float,std::numeric_limits<short>::max()> a;
+  因为编译期运算，所以可以把std::numeric_limits<short>::max()用作以讹个整数常量
+10.C++11开始，template模板允许接受个数不定的模板template参数，使用arg...
+11.带别名的模板
+   template <typename T>
+   using Vec = std::vector<T, MyAlloc<T> >;
+   Vec<int> coll
+12.自C++11开始，允许拥有默认的模板实参
+13.Lambda
+14.关键字decltype：找出表达式的类型
+15.新的函数声明语法，返回类型后置
+   template<typename T1, typename T2>
+   auto add (T1 x, T2 y) -> decltype(x+y);
+16.带作用域的枚举
+   enum class Salutation : char {mr, ms, co, none};
+17.非类型的模板参数：bitset<32> flag32
+18.关键字typename用来指明紧跟其后的是个类型
+   typename T::SubType *ptr
+   表示ptr时一个指针，指向定义于T中的类型SubType
+   否则，没有typename就表示，定义于T中的值乘以ptr
+19.基础类型明确初始化
+   int i＝ int();  //i = 0
+   可以保证，无论任何类型，都有一个明确的初始值

@@ -1,0 +1,314 @@
+13.Stream Buffer Classes
+   stream并不进行实际的读写操作，而是委托给Stream Buffer Classes
+   一般性接口：
+   rdbuf()               返回一个指针，指向stream缓冲区
+   rdbuf(streambuf*)     将实参所指的stream缓冲区安装到当前stream身上
+                        并返回一个指向先前stream缓冲区的指针
+   分析：
+    1.rdbuf()：取得一个指针，指向某个stream的缓冲区
+    2.stream的构造函数允许你在构建stream的时候设立一个缓冲区
+      也允许你在stream存在的过程当中改变stream的缓冲区
+      不论哪种情况，你都必须传递一个指向相应stream缓冲区类型的指针，这个指针就是rdbuf()所返回的
+    3.这个缓冲区的机制，可以让多个stream读写同一个设备，或完成重定向的工作
+
+  1.Stream缓冲区接口
+    stream缓冲区都是由basic_streambuf<>派生的
+    1.写入缓冲区的接口
+      sputc(c)       把字符c送入stream缓冲区
+      sputn(s, n)    将字符串s内的n个字符送入stream缓冲区
+      注意：1.sputc(c)在发生错误时，返回traits_type::eof() (traits_type是basic_streambuf<>内的一个类型定义)
+    	   2.sputn(s, n)会写进第二实参所规定的字符数(除非缓冲区无法耗尽他们)
+    	     这个函数并不考虑终止符null
+    	     返回实际读写的字符数
+    2.读取缓冲区的接口
+      读取时要实时观察字符但不耗用(所以接口比较复杂)：
+      in_avail()      返回到底有多少个有效字符
+
+      sgetc() 		  返回当前字符，但不耗用(读取当前字符，而不必移动至下一字符)(出错返回traits_type::eof())
+      sbumpc() 		  返回当前字符，但耗用(读取当前字符，并移动至下一字符，下一字符为当前字符)(出错返回traits_type::eof())
+      snextc() 		  耗用当前字符并返回下一字符(将下一字符作为当前字符并读取它)(出错返回traits_type::eof())
+      sgetn(b, n)  	  读取n个字符，并把他们存储到缓冲区b中(实参时想要读取的字符数)(返回值是实际读取的字符数)
+
+      sputbackc(c)    将字符c返回stream缓冲区(退回一步，使前一字符成为当前字符，且确认c确实是刚刚被读取的数据)
+      sungetc()		  退回至前一字符(退回一步，使前一字符成为当前字符)
+      注意：sputbackc(c)和sungetc()只能退回一步
+    3.其他stream缓冲区接口
+      pubimbue(loc)                      为stream缓冲区安装locale loc(并返回当前的缓冲区local)
+	  getloc()                           返回当前stream缓冲区的locale
+
+	  pubseekpos(pos)                    将当前位置重新设置为pos表示的绝对位置
+	  pubseekpos(pos, which) 			 将当前位置重新设置为pos表示的绝对位置，which指定IO方向(读/写)
+	  pubseekoff(offset, rpos)           设置相对位置
+	  pubseekoff(offset, rpos, which)    设置相对位置，which指定IO方向(读/写)
+
+	  pubsetbuf(buf，n)                  影响缓冲行为
+	  注意：1.关于pubsetbuf(buf，n)，行为取决于具体的stream缓冲区
+	  	     1.对string缓冲区调用pubsetbuf(buf，n)没有任何意义
+	  	     2.对于文件stream，在第一次IO完成后，调用pubsetbuf(buf，n)意为不采用缓冲区，才有意义
+	  	     3.如果出错，函数返回0，否则返回该缓冲区
+	  	   2.关于pubseekpos()和pubseekoff()
+	  	     1.对于which，那是一个ios_base::openmode这种类型(例如ios_base::in|ios_base::out，这是默认值)
+	  	     2.关于相对位置，rpos的起始偏移量，类型为：ios_base::cur, ios_base::beg, or ios_base::end
+	  	     3.这两个函数的返回值
+	  	       1.正确返回stream所在位置(文件指针位置)
+	  	       2.错误返回无效位置( pos_type(off_type(-1)) )
+	  	         pos_type和poff_type使处理stream所在位置的类型(文件指针位置的类型)
+
+  2.stream缓冲区迭代器
+    stream缓冲区迭代器可以用来处理无格式IO
+    1.这些迭代器符合input迭代器和output迭代器
+    2.这些迭代器能够从stream缓冲区中读写单一字符
+
+    迭代器类型：
+    istreambuf_iterator<>和ostreambuf_iterator<>用来从stream缓冲区basic_streambuf<>中读取单一字符
+    定义：
+    namespace std {
+		template <typename charT,
+				  typename traits = char_traits<charT> > 
+		class istreambuf_iterator;
+		template <typename charT,
+				  typename traits = char_traits<charT> >
+		class ostreambuf_iterator;
+	}
+	注意：这些迭代器是stream迭代器的特殊形式，区别是他们元素是单一字符
+
+	1.output stream缓冲区的迭代器
+	  把一个string写入缓冲区中
+	std::ostreambuf_iterator<char> bufWriter(std::cout);
+	std::string hello("hello, world\n"); 
+	std::copy(hello.begin(), hello.end(),
+			  bufWriter);
+	  注意：除了可以用流来初始化output stream缓冲区的迭代器之外，还可以传递一个stream缓冲区指针来初始化
+
+	  output stream缓冲区的迭代器的成员函数：
+	  ostreambuf_iterator<char>(ostream)     用stream，来初始化output stream缓冲区的迭代器
+	  ostreambuf_iterator<char>(buffer_ptr)  用stream缓冲区指针，来初始化output stream缓冲区的迭代器
+￼￼￼￼  *iter                                  无动作，返回iter
+	  iter = c                               调用sputc(c)，对缓冲区写入字符c
+	  ++iter                                 无动作，返回iter
+	  iter++                                 iter++
+	  failed()                               判断output stream缓冲区的迭代器是否还能执行写入动作(判断是否写入失败)
+	2.input stream缓冲区的迭代器
+	  input stream缓冲区的迭代器的成员函数：
+	  istreambuf_iterator<char>()                建立一个指向输入EOF的input stream缓冲区的迭代器
+	  istreambuf_iterator<char>(istream)         用stream，来初始化input stream缓冲区的迭代器(可能调用sgetc()读取第一个字符)
+	  istreambuf_iterator<char>(buffer_ptr)      用stream缓冲区指针，来初始化input stream缓冲区的迭代器(可能调用sgetc()读取第一个字符)
+	  *iter                                      返回当前字符(先前用sgetc()读取的字符)
+	  ++iter                                     sbumpc()取得下一个字符，并返回其位置
+	  iter++	                                 sbumpc()取得下一个字符，返回iterator指向前一个位置
+	  iter1.equal(iter2)                         判断两个input stream缓冲区的迭代器是否相等
+	  iter1 == iter2                             判断两个input stream缓冲区的迭代器是否相等
+	  iter1 != iter2                             判断两个input stream缓冲区的迭代器是否不相等
+	  注意：同输入流迭代器的准则一样：
+	  		1.读取迭代器需要一个从什么地方开始读，读到哪里结束的行为
+	          所以需要一个普通的输入迭代器来读，一个表示EOF的迭代器来标志结束位置
+	        2.至于相等准则，如果两个迭代器都是指向EOF的迭代器，则相等
+ 			  都不是指向EOF的迭代器，也想等
+ 			  一个指向EOF的迭代器，一个不是指向EOF的迭代器，则不想等
+ 			  (把一个正常迭代器移动到尾部，或者尾部之后，或者读取错误，都会变成指向EOF的迭代器)
+ 			3.不可能使用istreambuf_iterators来定义子区间
+
+ 	3.stream缓冲区的迭代器实例
+ 	  用stream缓冲区的迭代器简单的写出所有被读入的字符
+ 	  详见：charcat2.cpp
+ 	  分析：
+ 	  你也可以传入stream缓冲区的迭代器给算法
+	int countLines (std::istream& in)
+	{
+		return std::count(std::istreambuf_iterator<char>(in),
+                          std::istreambuf_iterator<char>(),
+							’\n’);
+	}
+
+  3.用户自定义stream缓冲区
+    1.stream缓冲区是一种IO缓冲区，由class basic_streambuf<>定义
+    2.针对char和wchar_t，预先定义好了streambuf和wstreambuf
+    3.缓冲区的主要接口由三个指针构成
+      1.一个指向缓冲区开始处
+      2.一个指向当前写入位置
+      3.一个指向结尾的超尾位置
+
+    1.用户自定义output缓冲区
+      output缓冲区由三个指针维护：
+      1.pbase()  指向输出缓冲区的开始处
+	  2.pptr()   是当前的写入位置
+	  3.epptr()  指向输出缓冲区超尾的位置
+	  见图：15.4 output缓冲区接口
+	  注意：pbase()到pptr()之间的字符(不包括pptr())，已经被写到相应的输出通道，但并没有清空
+	  分析：
+	  1.当用sputc()写入一个字符，如果当前有一个空的涂写位置(pptr()所指向的位置)，那么该字符就被复制到这个位置上面
+	    且pptr()指针+1
+	    如果缓冲区是满的(pptr() == epptr())，就调用虚函数overflow()将缓冲区中的内容发送到对应的输出通道中去
+	    (基类class basic_streambuf<>所实现的overflow()只返回EOF，表示没有更多字符可以被写)
+	  2.函数sputn()可用来一次写入多个字符，这个函数把实际任务委派给虚函数xsputn()，以达到对多个字符写入更高效
+	    (基类class basic_streambuf<>所实现的xsputn()根本上就是对每个字符调用sputc())
+	    (这样并没有提高效率，要提高效率应覆写这个虚函数)(同时写入多个字符，比一次写入一个字符效率要高的多)
+	  3.对一个stream缓冲区写数据，不一定非要采取缓冲行为，可以让字符一到达，就写入。
+	    (此时默认构造函数会将维护write缓冲区的三个指针设为0或NULL)
+
+	  4.未采取缓冲策略的stream缓冲区
+	    实例：一个并未采取缓冲行为的stream缓冲区(对每一个字符都调用overflow())
+	         我们只要重写这个overflow()就可以了
+	         详见：outbuf1.hpp
+	         注意：这个例子中的输出缓冲区是针对char实现的(streambuf本来就是char类型的特化版本)
+
+	    实例：如果不是只针对char实现，那么：
+	  	     1.针对c和EOF的比较动作有所不同，返回的应该是traits::eof()而不是EOF (c和traits::eof()做比较)
+	  	     2.如果c是EOF，那么整个虚函数，将返回traits::not_eof(c)
+	  	       (其中traits是basic_streambuf的第二模板实参)
+	  	     详见：outbuf1i18n.hpp
+	  	     注意：1.因为基类取决于模板参数，所以必须使用this->getlog()来取得地域
+	  	          2.待压入的字符cc必须窄化，因为putchar只接受char类型的实参
+
+	    stream的构造函数还可以接受一个文件描述符(文件描述符，socket描述符等等)，另外两个缓冲区(在对象初始化的时候同步写入)
+	    实现这种stream缓冲区的时候，具体的写入动作，就覆写overflow()函数来实现，当然最好也覆写xsputn()来提高多字节写入的效率
+
+	    实例：定义一个特殊的构造class，用来将构造函数实参，传递给相应的stream缓冲区
+	  		  1.定义一个用文件描述符初始化stream的class
+	  		  2.文件描述符是用函数write写入的
+	  		  3.定义一个继承自ostream的class，用来维护stream缓冲区
+
+	  		  详见：outbuf2.hpp
+	  		  分析：1.定义一个继承自ostream的类(fdostream)(单参构造int fd)
+	  			   2.定义一个继承自streambuf的缓冲区的类(fdoutbuf)(单参构造int fd)
+
+	  			   3.fdostream的实现中：
+	  			     1.用0来初始化ostream
+	  			     2.用单参构造函数的实参fd来初始化fdoutbuf(用fd初始化缓冲区)
+	  			     3.把用fd初始化的缓冲区fdoutbuf绑定到fdostream上
+	  			   4.fdoutbuf的实现中：
+	  			     1.重写overflow，在其中可以对传递进来的描述符进行实际的读写
+	  			     2.重写xsputn，在其中对传递进来的描述符，进行多字符一次性读写
+
+	  			   5.完成：以后对fdostream的读写都会转嫁到对这个描述符的写入
+
+	  5.具备缓冲能力的stream缓冲区
+	    要实现具备缓冲能力的缓冲区，write缓冲区必须以setp()初始化
+
+	    实例：outbuf3.hpp
+	    分析：1.setp()对write缓冲区进行初始化(setp()未两个参数)：
+	    	   1.第一个参数指向缓冲区的开始处
+	    	   2.第二个参数指向缓冲区的结尾处(并非超尾)
+	    	 2.pbump()如果传入负值，就把涂写位置移动到起始处
+	    	   传入正值，就是涂写位置向后移动的距离
+	    	 3.虚函数sync()用来刷新缓冲区(被销毁时仍保证缓冲区内的数据可以写入目标区)
+	    	 4.对于大多数stream而言，实例中的函数都会被覆盖(包括overflow()，sync(),flushBuffer()等等)
+	    	   但如果外部表述比较复杂，则可能还需要覆盖其他函数，比如：seekoff()，seekpos()等等
+
+	2.用户自定义input缓冲区
+	  input缓冲的的机制和output基本相同：
+	  1.sungetc()函数由input stream的unget()调用
+	  2.sputbackc(c)函数由input stream的putback()调用
+	    (用来存储缓冲区最后一次读取前的状态)
+	    注意：从stream缓冲区中读取的动作，要实现起来比"往stream缓冲区中写"，要覆盖更多的函数
+
+	  stream缓冲区维护三个指针：
+	  1.eback()       指向input缓冲区的起始位置
+	  2.gptr()        指向input缓冲区的"当前读取位置"
+	  3.egptr()       指向input缓冲区的尾端
+	  分析机制：
+	  	1.读取位置和结束位置之间的字符，已经从外部表述读入到程序的内存中，但仍然等待程序的处理
+
+	  	  (sgetc()和sbumpc()就是用来处理已经读入的数据的，区别是sbumpc()会使指针前进)
+	  	2.缓冲区读取完毕(ptr() == egptr()),那么已经没有字符了，缓冲区需要补给，补给调用的是虚函数underflow()
+	  	  underflow()会负责读取数据
+	  	3.如果没有字符可读，sbumpc()会调用虚函数uflow()
+	  	  1.基类中：uflow()的默认行为是会调用underflow()，并移动当前的读指针
+	  	  2.基类中：underflow()的默认行为是直接返回EOF(不可能用默认版本读取字符，进行补给)
+	  	4.函数sgetn()一次读取多个字符，这个函数也是调用虚函数xsgetn()
+	  	  默认的xsgetn()的做法是简单的对没有IE字符调用sbumpc()(同样，效率很低)
+	  	5.和output不同的是，对input而言，不能只覆盖一个underflow()函数：
+	  	  1.要么建立一个缓冲区
+	  	  2.要么至少实现出underflow()和uflow()
+	  	    原因：1.underflow()不会将指针移动到当前字符之后(它可以被sgetc()调用)
+	  	         2.要移动到下一个字符，需要以缓冲区操作函数，或者uflow()完成
+	  	         (总之，sgetc()因为不移动指针，所以直接调用underflow())
+	  	         (     而sbumpc()会移动指针，所以先调用uflow()，由uflow()再调用underflow())
+	  	    注意：任何一个具备字符读取功能的缓冲区，都必须实现出underflow()
+	  	         如果underflow()和uflow()都实现了，则没有必要建立缓冲区
+	  	6.和output的缓冲区申请机制类似：
+	  	  setg()可以设定一个read缓冲区(但setg()有三个参数)：
+	  	  1.第一个参数指向缓冲区头部(eback())
+	  	  2.第二个参数指向当前读取位置(gptr())
+	  	  3.第三个参数只想缓冲区尾部(egptr()非超尾)
+	  	  注意：定义三个参数的原因是为了"存储将被回退的给stream的字符空间"
+	  	       所以，一旦stream缓冲区的指针已经被设定好，那么就会有一些字符已经被读取，但仍然存放在缓冲区内
+	  	7.sungetc()和sputbackc(c)函数可以用来将字符回退到read缓冲区
+	  	  (同样回退一个字符，区别是：sputbackc(c)会验证c是否真的是刚刚被读取的数据)
+	  	  1.如果当前读取的指针不是指向缓冲区头部，那这一两个函数应该都能顺利执行
+	  	  2.如果当前读取指针已经指向了缓冲区头部，你还打算继续回退，那么这两个回退函数，会调用一个虚函数pbackfail()
+	  	    1.(只要覆盖这个函数，就可以实现，就算这种情况下，也能恢复原读取位置的机制)
+	  	    2.(基类basic_streambuf并没有定义出相关操作，所以不能回退任意字符)
+	  	    3.(对于不使用缓冲区的stream来说，pbackfail()也应该被实现出来，因为这些stream应该至少有一个字符可以被回退)
+	  	8.如果stream缓冲区只用来read，为了可以回退字符，stream缓冲区需要将旧字符保留下来
+	  	  通常具体是这么干的：
+	  	  在实现underflow()去外部表述读取数据的时候，会把最后的四个字符保留下来，移动到头部，然后以追加的方式读取新的字符
+	  	  这样就可以正常回退字符了
+
+	  	  实例：stream缓冲区inbuf，实现了一个10个字符空间的缓冲区
+	  	       前4个字符空间作为回退区，后6个字符作为常规input缓冲区
+	  	  详见：inbuf1.hpp
+	  	  分析：1.初始化所有指针另缓冲区清空，所以只要期望从缓冲区中读取一个字符，那么underflow()就会被调用
+	  	       2.underflow()一开始先判断缓冲区中是否有待读取的字符(等待着被返回给stream的字符)
+	  	         有待读取的字符，就直接返回缓冲区中的待读取的字符
+	  	       3.如果没有待读取的字符
+	  	         underflow()检查是否有读取完成的字符(字符已经返回给stream，但还留在缓冲区中)
+	  	         如果有读取完成的字符，就把这些字符移动到回退区
+	  	       4.用read从外部表述中，读取字符放入缓冲区(这些字符成为待读取的字符，等待着被返回给stream)
+	  	       5.维护inuput缓冲区的三个指针
+	  	       6.返回一个字符给stream
+
+14.关于效能
+   为了是效能最佳化，应该只包含必要的头文件，比如：
+   如果不使用标准stream对象，应该避免包含<iostream>
+  1.与c标准stream同步
+    默认情况下：
+    cin, cout, cerr, clog这些标准库对象和c中的stdin，stdout，stderr是同步的
+    也就是说混合使用不会出现顺序打乱的问题(但这样会带来不必要的开销)
+
+    为了控制是否同步，有以下接口：
+    sync_with_stdio()          判断标准stream对象是否与标准c同步
+	sync_with_stdio(false)     取消c++stream与标准c的同步，返回前一次被调用的实参(如第一次调用，返回的是true)
+							   (必须在任何IO操作之前调用H额个函数，否则结果视实现而定)
+	注意：c++11开始，与标准c的同步取消，意味着，对并发的支持也取消了
+
+  2.stream的缓冲机制
+    1.不采用缓冲机制的stream缓冲区，实现起来更加简单，所以：
+      1.如果stream不是被经常使用，或者只用于output，那么没有缓冲区问题不大
+      (对于格式化输入输出，stream都是使用"stream缓冲区迭代器"来访问stream缓冲区的)
+      (对stream迭代器来说，input的"stream缓冲区迭代器"的效率很低，比普通指针差很多)
+      (                  output的"stream缓冲区迭代器"效率比较高，和普通指针差不多)
+      2.如果stream被频繁使用，那么应该毫不犹豫的实现缓冲区
+    2.应该尽量减少清空缓冲区的次数：
+      标志unitbuf会提示stream清空自己的缓冲区，endl和flush 也会清空缓冲区
+      如果你的程序频繁使用unitbuf，endl，flush，那么要考虑某种特殊的缓冲设备，并不调用sync()虚函数清空缓冲区
+      而是在适当的时候，调用其他函数。
+    3.用tie绑定stream的时候，也会造成额外的缓冲区清空动作，非必要时尽量不要进行绑定。
+
+  3.直接使用stream缓冲区
+    如果直接生成stream对象，系统一般会进行如下操作：
+    1.首先构造相应的sentyr对象
+      1.导致暴露潜在保定对象
+      2.忽略空白字符(对于input而言)
+      3.某些依赖于实现的行为：多线程环境中锁定等等
+    2.然后执行实际操作
+
+    这些操作对于无格式IO来说，没有任何作用(多线程环境下也只有locking的操作有作用)
+    所以对于无格式IO，直接使用stream缓冲区的效率更高
+
+    可以直接对stream缓冲区进行<<或>>操作
+    1.把stream缓冲区的指针传递给<<，你可以输出该stream的所有输入
+      (这是c++IO复制文件的最快方法)
+      详见：copy1.cpp
+      分析：程序将所有标准输入复制到标准输出
+    2.把stream缓冲区指针传递给>>，可以直接将数据读进stream缓冲区内
+      详见：copy2.cpp
+      分析：程序将所有标准输入复制到标准输出
+
+      即使格式化IO也可以直接使用stream缓冲区
+      1.整个生命周期只构造一个sentry
+      2.可以使用ws操控器手动略过空格(可以在构造sentry的时候把略去空格的属性加入)
+      等等
+
+      stream缓冲区本身是没有差错状态的，也不知道自己和那些输入输出stream相链接
+      所以如果直接使用stream缓冲区，将没有办法改变差错状态

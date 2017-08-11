@@ -1,0 +1,282 @@
+定义：
+namespace std {
+	template <typename Key, typename T,typename Compare = less<Key>,typename Allocator = allocator<pair<const Key,T> > >
+	class map;
+
+	template <typename Key, typename T,typename Compare = less<Key>,typename Allocator = allocator<pair<const Key,T> > >
+	class multimap;
+}
+Map和Multimap将key/value pair当作元素处理(元素类型是一个pair<const key, T>)
+以key为基准，进行自动排序
+map不允许元素重复，multimap允许
+
+key和value必须满足以下条件
+1.key和value必须都是可复制的可搬移的
+2.对指定的排序准则，key必须时可比较的
+
+排序准则的定义同set和multiset相同
+对key进行排序，排序和value无关
+排序的相等原则：两个值相比较即不大于也不小于，则视为两个元素相等
+默认使用<排序准则
+
+对于等价的key，安插和抹除动作都会保留等价元素的相对次序
+
+Map和Multimap也是以二叉树形式为基础的容器(set和multiset可以视为key和value相等的特殊Map和Multimap)
+所以，两者的能力和操作基本相同
+细微差别：
+1.Map和Multimap的元素是pair<const key, T>
+2.map可作为关联式数组(根据key来查找value效率很高，根据value值查找效率很低)
+
+自动排序导致不可以直接改变元素key(因为是根据key排序的，所以改变key会影响相对顺序)
+修改的方法：先删除key元素，再插入该key元素
+
+从迭代器角度看，key是常量(如果value的值非常量，则是可以修改的)
+Map和Multimap提供双向迭代器
+
+Map和Multimap操作函数
+比较准则可以定义排序规则：
+1.以模板参数定义之(模板参数填写排序准则的类型，那是一个函数对象)
+  一个排序准则会产生一种容器类型(不同排序准则的容器无法进行合并)
+2.以构造函数参数定义之
+  同一个类型可以运用不同的排序准去，排序准则的初始值或这状态也可以不同(运行期获得排序准则)
+
+操作函数：
+1.创建，复制和销毁
+  1.默认构造函数(空Map和Multimap)
+  2.以排序准则op为实参，建立set和multiset(空Map和Multimap)
+  3.拷贝构造(右值拷贝构造)
+  4.赋值运算符(移动赋值运算符)
+  5.指定某个区间的构造函数
+  6.指定某个区间的构造函数(以op为排序准则)
+  7.初值列构造函数
+  8.初值列赋值运算符
+2.非更易型操作
+  1.返回比较准则(对key)
+  2.返回比较准则(对Value)
+  3.判空
+  4.取得目前的元素个数
+  5.返回元素个数的最大可能量
+  6.== != > < >= <=
+  注意：1.对容器进行比较，两个容器必须类型相同(元素和排序准则必须相同)
+         比较动作是按"字典顺序"来比较一个容器是否小于另一个容器
+       2.绕过要比较两个类型不同的容器，可以采用比较算法
+3.特殊查找函数
+  set和multiset再元素查找方面有优化设计(相比通用算法，这些操作函数拥有对数复杂度)
+  1.返回元素值key为val的元素个数
+  2.返回元素key为val的第一个元素的位置(没找到就返回超尾迭代器)(不能用来查找value)(find)
+  3.返回元素key为val的第一个可安插位置
+  4.返回元素key为val的最后一个可安插位置
+  5.返回元素key为val的第一个和最后一个位置(元素等于val的区间)
+
+  想要查找value可以使用STL通用算法find_if，或者自己定义循环：
+std::multimap<std::string,float> coll;
+...
+// do something with all elements having a certain value std::multimap<std::string,float>::iterator pos;
+for (pos = coll.begin(); pos != coll.end(); ++pos) {
+    if (pos->second == value) {
+    	do_something();
+	} 
+}
+注意：用此循环查找value来删除元素，可能会锯断你正坐着的树枝
+     如果使用find_if代码将复杂一些，因为你必须定义比较的函数对象
+     3，4，5函数和set和multiset中的行为一致(唯一的不同是元素是一个pair<const key, T>)
+4.赋值
+  1.普通赋值运算符
+  2.移动赋值运算符
+  3.初值列赋值运算符
+  4.成员swap和非成员swap
+  注意：1.只有容器类型相同，才可以进行赋值和交换
+       2.如果排序准则用构造函数定义之(会出现容器类型相同，但排序准则不同的情况)，此时赋值交换，排序准则也会被赋值和交换
+
+5.迭代器函数和元素访问
+  Map和Multimap不支持元素直接访问，想防卫元素
+  1.用迭代器进行访问
+  2.用区域for循环进行访问
+  注意：map提供at()和[]下标操作符和直接访问元素
+  迭代器相关函数：
+  1.提供了指向第一个元素的迭代器: 一般迭代器，常量迭代器，反向迭代器，反向常量迭代器
+  2.提供了指向最后一个元素的迭代器: 一般迭代器，常量迭代器，反向迭代器，反向常量迭代器
+  注意：1.迭代器为双向迭代器(并不是随机访问迭代器)，所以无法调用sort等等需要随机访问的STL算法
+         但是可以使用成员sort算法
+        2.因为从迭代器的角度看，所有元素(pair<const key, T>)都是常量，所以无法使用更易型算法(remove等等)
+          要移除元素，只能使用成员函数
+
+范围for循环访问：
+std::map<std::string,float> coll;
+...
+for (auto elem& : coll) {
+	std::cout << "key: " << elem.first << "\t"
+	<< "value: " << elem.second << std::endl;
+}
+
+迭代器访问：
+std::map<std::string,float> coll;
+...
+std::map<std::string,float>::iterator pos;
+for (pos = coll.begin(); pos != coll.end(); ++pos) {
+	std::cout << "key: " << pos->first << "\t"
+	<< "value: " << pos->second << std::endl;
+}
+
+注意：改变元素key会引发错误
+     如果value的值非const，则可以修改
+
+使用Lambda来操作map元素，必须明确指明元素类型
+std::map<std::string,float> coll;
+...
+// add 10 to the value of each element: 
+std::for_each (coll.begin(), coll.end(),
+						[] (std::pair<const std::string,float>& elem) 
+						                              { elem.second += 10;});
+
+注意: 1.std::pair<const std::string可以改成：std::map<std::string,float>::value_type
+      2.std::pair<const std::string可以改成：decltype(coll)::value_type
+
+一定要改变元素key：
+1.以一个value相同的新元素，替换掉旧元素。详情见：newkey.cpp
+2.map提供了一种方便的方法：
+  //如果把旧的key值赋值给新key值
+    (下标运算符:如果使容器中没有的这个key值，则会自动创建)
+   coll["new_key"] = coll["old_key"];
+  //删除这个key值
+   coll.erase("old_key");
+
+5.元素的安插和移除(通用的更易型操作)
+  必须保证实参合法
+  1.迭代器必须指向一个合法的位置
+  2.区间的起始位置不能在结束位置之后
+  多个元素的安插，安插一次比安插多次效率高
+
+  操作函数：
+  insert
+  (所有插入函数返回新元素的位置)
+  1.插入一个val
+  2.在pos位置插入一个val(pos只是一个提示)
+  3.插入一个区间中的元素(无返回值)
+  4.插入一个初值列中的元素(无返回值)
+  emplace
+  (所有插入函数返回新元素的位置)
+  5.插入args为初值的元素
+  6.在pos位置插入args为初值的元素(pos只是一个提示)
+  erase
+  7.移除与val相等的所有元素，返回移除的元素个数
+  8.移除pos位置上的元素，无返回值
+  9.移除区间中的元素，无返回值
+  clear
+  10.移除所有元素，容器为空
+  注意：插入的操作函数会保证元素的相对次序，也就是说，元素会被安插在"既有等值元素群的末尾"
+       插入新元素时，key被视为常量(要么提供正确的类型，要么提供显示或隐式的类型转换)
+
+对安插和删除函数的说明，和set和multiset中的一致
+
+insert系列和emplace系列
+  map中：
+  insert系列：无pos的版本返回新元素迭代器和是否成功的bool值组成的pair
+             有pos的版本只返回新元素位置
+  emplace系列：无pos的版本返回新元素迭代器和是否成功的bool值组成的pair
+              有pos的版本只返回新元素位置
+  multimap中：
+  insert系列：无pos的版本返回新元素位置
+             有pos的版本只返回新元素位置
+  emplace系列：无pos的版本返回新元素位置
+              有pos的版本只返回新元素位置
+  注意：如此的原因时因为map不允许重复元素，所以插入时可能会失败
+       不管成功还是失败，此函数都会返回新元素的位置，如果失败，返回的是同值元素的位置
+
+c++11开始，最方便的插入方式时初值列：
+std::map<std::string,float> coll;
+coll.insert({"otto",22.3});
+
+插入元素进入map的方法有三种：
+1.运用value_type：这是为了防止隐式类型转换，使用value_type强制指明类型
+  std::map<std::string,float> coll;
+  ...
+  coll.insert(std::map<std::string,float>::value_type("otto",22.3));
+  or
+  coll.insert(decltype(coll)::value_type("otto",22.3));
+2.直接使用pair：
+  std::map<std::string,float> coll;
+  ...
+  coll.insert(std::pair<std::string,float>("otto",22.3));  //类型不准确，隐式类型转换
+  coll.insert(std::pair<const std::string,float>("otto",22.3));
+  注意:能进行隐式类型转换时因为insert定义成了成员模板
+3.运用make_pair
+  std::map<std::string,float> coll;
+  ...
+  coll.insert(std::make_pair("otto",22.3)); //隐式类型转换
+  注意:能进行隐式类型转换时因为insert定义成了成员模板
+
+map提供了at()和[]操作符用来访问元素
+
+用emplace安插新元素(传递两个实参，一列为key，另一列为value)
+如：
+std::map<std::string,std::complex<float>> m;
+m.emplace(std::piecewise_construct, 
+		  std::make_tuple("hello"),
+          std::make_tuple(3.4,7.8));
+注意：这使用到了标准库通用工具中tuple的逐块式构造
+
+删除某个key的元素：
+1.使用erase：删除携带这个key的所有元素，返回删除的元素个数(如果时map返回的只能是0或1)
+2.只删除携带这个key的第一个元素
+  std::multimap<std::string,float> coll;
+  ...
+  if (pos != coll.end()) {
+       coll.erase(pos);
+  }
+  注意：这个同set和multiset一样
+       用这个循环删除的时候，当心锯断正在坐着的树枝
+       (删除节点后，pos指向的节点将无效，pos不再是coll的有效迭代器)
+       解决方案：
+       c++11：
+       std::map<std::string,float> coll;
+	   ...
+	   for (auto pos = coll.begin(); pos != coll.end(); ) { 
+	   		if (pos->second == value) {
+       			pos = coll.erase(pos);
+	   		}
+	   		else {
+				++pos; 
+			}
+	   }
+	   注意：c++11的erase总是返回一个迭代器，指向后继元素
+	   c++11之前
+	   typedef std::map<std::string,float> StringFloatMap; 
+	   StringFloatMap coll;
+	   StringFloatMap::iterator pos;
+	   ...
+	   for (pos = coll.begin(); pos != coll.end(); ) {
+	   		if (pos->second == value) {
+            	coll.erase(pos++);
+        	}
+			  else { 
+			    ++pos;
+			}
+		}
+		注意：pos++返回pos的后一个位置，本身用作参数去调用erase，所以pos本身已经不指向那个已移除的元素了
+
+		以迭代器为元素的map，调用earse会造成歧义，所以c++11重载了相关earse
+
+		面对multimap，标准库保证插入和移除元素会保留等价元素的相对次序(安插元素会安插在等价元素的末尾)
+
+将map视为关联式数组：
+通常，关联式容器不允许对元素进行直接访问。
+但是map提供了[]和at()，支持元素直接访问
+1.at()如果传给它的key不在范围之内，会抛出异常
+2.[]如果传给它的key不在范围之内，则会新建这个key，用默认构造函数初始化
+  (和传统array不同之处是key不必非是整数)
+优点：可以同过方便的接口安插新元素
+缺点：可能会一不小心误置新元素
+
+异常处理：和set和multiset相同
+
+运用实例：
+1.Map和Multimap身上使用算法和Lambda，详见：map1.cpp
+2.将map当作关联式数组，详见：map2.cpp
+3.将map当作字典，详见：multimap1.cpp
+4.查找具有某特定value的元素，详见：mapfind1.cpp
+5.综合实例：运用map，string并于运行期指定排序准则
+
+
+
+

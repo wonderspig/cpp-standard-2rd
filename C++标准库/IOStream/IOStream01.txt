@@ -1,0 +1,450 @@
+IOStream
+C++11新增的IOstream特性
+1.加入少量的新增控制器，如：hexfloat 和 defaultfloat
+  以及get_time() 和 put_time()，get_money() 和 put_money()
+2.提供更多异常信息：
+  如今相关的IO class都派生自std::system_error，而不是直接派生自std::exception
+3.String stream 和 file stream 如今提供了移动和右值语义
+  所以已经支持了移动，移动赋值和交换stream的操作
+  同时也可以使用临时的IOStream
+4.文件stream允许传递一个std::string作为文件名
+  (以前只允许const char*)
+5.>>和<<被重载，从而支持long long和unsigned long long
+6.IOStream现在支持"并发"
+7.Character traits提供针对类型har16_t 和 char32_t
+8.由于class wbuffer_convert的帮助，现在stream可以读写不同的字符集，例如UTF-8
+
+
+1.IOStream的共通基础
+  1.stream对象：由class定义出来的具有特殊性质的对象，它是一条数据流，字符序列存在其中
+  			   输出动作解释为数据流进stream，输出动作解释为数据流出stream
+  			   还有一些标准IO通道，已经预先定义为全局对象
+  2.stream class：
+    Class istream：用来读数据
+    Class ostream：用来写数据
+    注意：这是两个实现自basic_istream<> or basic_ostream<>模板，以char作为字符类型
+  3.全局stream对象：
+    IOStream预先定义了全局对象，应用于标准IO通道
+    1.cin：属于istream，从标准输入读，对应于c中的stdin
+    2.cout：属于ostream，写往标准输出，对应于c中的stdout
+    3.cerr：属于ostream，写往标准错误，对用于c中的stderr(cerr是无缓冲的)
+    4.clog：属于ostream，写往日志，c中没有对应物，默认情况下操作系统将他连接向cerr连接的设备
+            (clog是有缓冲的)
+  4.stream操作符：<< >>
+    <<: 输出
+    >>: 输入
+  5.操控器
+    类似于std::cout << std::endl中的std::endl就是操控器
+    这是用来操控stream的一种特殊对象，通常他只会改变"输入的解释方式"或"输出的格式化方式"
+    操控器不会凭空制造出数据，也不会凭空吃掉数据
+    但有些操控器会引发立即动作，如：endl操控器会刷新缓冲区
+
+  stream class的简单应用，详见：io1.cpp
+
+
+2.基本Stream Class及其对象
+  1.class及其层次体系
+    见图：基本的stream class体系
+    分析：
+    1.基类ios_base定义了所有与"具体字符特性"无关的属性(状态，格式标志等组件和函数)
+    2.由ios_base派生的basic_ios<>定义出了"与字符类型及其相应的char trait相依赖"的共同属性(包括缓冲器等等)
+    3.class templates basic_istream<> 和 basic_ostream<>都以虚继承的方式继承自basic_ios<>
+      和basic_ios<>一样，他们也是用字符类型和相应的char trait，来作为模板参数
+      basic_istream<>：读对象
+      basic_ostream<>：写对象
+    4.class template basic_iostream<>多重继承自basic_istream<> 和 basic_ostream<>
+      即可以用来定义读对象，又可以用来定义写对象
+    5.class template basic_streambuf<>，是stream程序的库的核心
+      定义出了"可写的stream"和"可读的stream"的接口
+      其他stream class都利用这些接口进行实际的字符读写动作
+
+    Stream Buffer Classes的用途
+    1.是流对象内部维护的streambuf，流对象只负责处理数据的格式化，实际的读写动作由streambuf完成
+    2.streambuf提供读写时所使用的字符缓冲区，并形成对外表述(如文件和字符串)的一种抽象概念
+      注意：利用streambuf可以轻松定义出新的外部表述
+           1.定义出一个继承于basic_streambuf<>的类
+           2.定义出外部表述的读写函数即可
+
+   2.具体的class定义：
+   basic_ios：
+	namespace std {
+		template <typename charT,
+				  typename traits = char_traits<charT> > 
+		class basic_ios;
+	}
+	注意：模板参数为字符类型和相关的trait class
+	实例化：
+	namespace std {
+		typedef basic_ios<char> ios; 
+		typedef basic_ios<wchar_t> wios;
+	}
+	其中Stream Buffer Classes的定义：
+	namespace std {
+    	template <typename charT,
+                  typename traits = char_traits<charT> >
+    	class basic_streambuf;
+		typedef basic_streambuf<char> streambuf;
+		typedef basic_streambuf<wchar_t> wstreambuf; 
+	}
+
+   class templates basic_istream<>, basic_ostream<>, basic_iostream<>：
+   也是以字符类型及其相关的trait class作为参数
+   namespace std {
+    	template <typename charT,
+				  typename traits = char_traits<charT> > 
+		class basic_istream;
+
+    	template <typename charT,
+                  typename traits = char_traits<charT> >
+		class basic_ostream;
+
+    	template <typename charT,
+                  typename traits = char_traits<charT> >
+		class basic_iostream;
+	}
+	实例化：
+	namespace std {
+		typedef basic_istream<char> istream; 
+		typedef basic_istream<wchar_t> wistream;
+
+		typedef basic_ostream<char> ostream; 
+		typedef basic_ostream<wchar_t> wostream;
+
+		typedef basic_iostream<char> iostream;
+		typedef basic_iostream<wchar_t> wiostream; 
+	}
+
+  2.全局性的stream对象
+    预定义的全局性stream对象分别使用char和wchar定义
+    istream        cin         从标准输入通道读取数据
+	ostream        cout        将数据写入标准输出通道
+	ostream        cerr        将报错信息写至标准错误通道
+	ostream        clog        将日志信息写至标准日志通道
+	wistream       wcin        从标准输入通道读取宽字符数据
+	wostream       wcout       将宽字符数据写入标准输出通道
+	wostream       wcerr       将宽字符报错信息写至标准错误通道
+	wostream       wclog       将宽字符日志信息写至标准日志通道
+	注意：默认情况下，c++ stream和c stream同步(混合使用c++ stream和c stream时顺序有保障)
+	     在往c++流中写入数据时，会先清空c流中的数据，反之也是一样
+	     如果不需要这个耗费资源的功能，则调用sync_with_stdio(false)，取消同步。
+	     C++11开始，对并发的IO，也要万分注意
+
+  3.头文件
+    各种stream流分定义散于下列头文件
+    <iosfwd>     包含stream classes的前置声明(前置声明不能只是简单的写一句class ostream)
+	<streambuf>  包含Stream Buffer Classes的定义(basic_streambuf<>的定义)
+	<istream>    包含两种class定义：一种只支持input(basic_istream<>)
+				 				  另一种同时支持input和output(basic_iostream<>)
+	<ostream>    包含output class 的定义(basic_ostream<>).
+	<iostream>   内涵全局对象的定义(例如cout和cin等等)
+	注意：IOstream程序库的使用者只需要包含<iosfwd>
+		 并且在使用input或output的时候分别包含<istream> 和<ostream>
+		 如不是用cout cin等等预定义对象，不需要包含<iostream>
+
+3.stream的操作符<<和>>
+  >>：输入
+  <<：输出
+  1.output操作符<<
+    basic_ostream(包括ostream和wostream)重定义了<<操作符，对所有基础类型都进行了重载(除了void和nullptr)
+    <<第二实参按箭头方向发送到相应的stream中
+    可以重载<<来让自己的类型整合进IO系统
+    (这样编译器会自动推断出正确的打印函数，不需要再像printf那样，指明类型)
+    <<支持在同一个语句中打印多个对象(原理是因为按规定，会返回第一实参，也就是output stream对象)
+  2.input操作符>>
+    basic_istream(包括istream和wistream)重定义了>>操作符，对所有基础类型都进行了重载(除了void和nullptr)
+    >>第二实参按箭头方向发送到相应的stream中(第二实参会改变，所以第二实参一定不能是const)
+    可以重载<<来让自己的类型整合进IO系统
+    (这样编译器会自动推断出正确的打印函数，不需要再像printf那样，指明类型)
+    >>支持在同一个语句中输入多个对象(原理是因为按规定，会返回第一实参，也就是input stream对象)
+  3.特殊类型的IO
+    标准IO为所有基础类型做了定义(除了void和nullptr)，但包括了void*和char*
+    1.数值类型
+      读取数值类型时，必须至少一个数字起头，否则数值会被设为0，而且failbit位会被设置
+      注意：如果没有输入，或者failbit位已经被设置，则不会改变变量值
+    2.bool
+      默认情况，bool的读入和打印都以数值方式表示，flase对应0，true对应1
+      (读入的值既不是0也不是1，就视为错误，failbit位会被设置，且有可能抛出异常)
+      (可以使用格式化选项，以字符串形式打印bool值，不同的本地化对象产生的字符串可能不一样)
+    3.char 和 wchar_t
+      由>>读入char 和 wchar_t，默认会跳过起头的的空白字符
+      (若不需要这个特性，要么使用成员函数get()，要么清除标志skipws)
+    4.char*
+      C风格字符串的读取，只读取真正的文字(默认会跳过开头的空白字符，直到都到EOF为止)
+      (是否跳过空白字符，可以通过标志skipws来控制)
+      (c字符串最多不能容纳超过80个字符，但是c++的string可以容纳几乎接近无限的字符)
+    5.void*
+      当输出流遇到void*类型，打印的是指针的地址
+    6.Stream Buffers
+      串流缓冲区：使用操作符<<和>>直接用于读或者写Stream Buffers
+      这恐怕是运用IO流来复制文件的最快方法
+    7.用户自定义类型
+      自己重载<<和>>运算符
+    8.货币和时间
+      可以使用操控器，直接读或者写货币或时间值
+      时间详见：timemanipulator1.cpp
+
+4.stream的状态
+  stream维护着一个状态，标识IO是否成功，并能够指出不成功的原因
+  1.表示"Stream状态"的常量
+    Stream定义了类型为iostate的常量(并未限定iostate的类型)
+	goodbit     一切都好，没有任何位被设置
+	eofbit      遇到EOF
+	failbit     错误，某个IO动作未成功
+	badbit      毁灭性错误，造成不确定状态
+	分析：
+	1.goodbit被定义为0，表示所有的位都被清空
+	2.failbit：某项操作未完成，但stream答题ok(格式读取错误)
+	3.badbit： stream因不明原因而损坏(将stream定位到文件起点的更前方)
+	4.eofbit位和failbit位往往会一起出现(到了文件尾再读，自然是失败了)
+	5.这些常量不是全局性的，是由ios_base维护的(所有的派生类都可以使用)
+	  可以这么使用：
+	  std::ios_base::eofbit
+	  std::ios::eofbit       //ios是ios_base<>的char形具体化
+	  注意：1.stream buffers不能使用，它不是ios_base的派生类
+	       2.一个stream buffers可以被多个stream共享
+	       3.上述标志，只能反应最后一次操作stream的状态(每次操作前，先设置goodbit)
+  2.用来操作stream状态的成员函数
+    good()               goodbit被设置返回true
+	eof()                eofbit被设置返回true
+	fail()               failbit或badbit被设置返回true
+	bad()                badbit被设置返回true
+	rdstate()            返回当前已设置的所有flag
+	clear()              清除所有flag
+	clear(state)         清除所有flag后，设置state flag
+	setstate(state)      加设state flag
+	分析：
+	前四个成员用来检测stream状态(注意fail()的返回值为failbit或badbit)
+
+	注意：1.stream可以被配置为某些位被设置时，便抛出异常
+		 2.我们必须明白的清除错误位，否则无法继续使用stream
+		 3.被设置的位无法表示时这一次的操作，还是先前某一次的操作
+		   (因此操作前必须先设置goodbit)
+  3.stream状态和boolean条件测试
+    stream有boolean表达式的重载：
+    operator bool ()
+￼￼  operator ! ()
+    有了这两个运算符重载，我们就可以如下使用stream：
+    1.while (std::cin) {
+        ...
+      }
+    2.if (std::cin >> x) {
+        ...
+      }
+    3.while (!std::cin) {
+        ...
+      }
+    4.if (!(std::cin >> x)) {
+        ...
+      }
+    注意：这样的用法可能会引发争议
+         使用成员函数会有较好的可读性
+        std::cin >> x;
+        if (std::cin.fail()) {
+            ...
+        }
+  4.stream的状态和异常
+    stream默认情况下并不抛出异常
+    我们可以对任何一个flag进行定义，该flag被设置时，是否会抛出异常
+    方法时使用成员函数：
+    exceptions(flags)    设定会触发异常的flag
+    exceptions()         返回会触发异常的flag
+    注意：异常的抛出时机是在"程序调用clear()和setstate()之后"又设置某些flag之际
+         如果某个flag已经被设置，但没有被清除，也会抛出异常
+
+    被抛出的异常是一个std::ios_base::failure对象，从C++11开始，继承自std::system_error
+    实现放应提供error_code对象，来说明失败原因，详情见：c++异常.txt
+
+    读到eof时即会设置failbit也会设置badbit，所以不能简单的处理
+    具体如何处理，详见：sum1.cpp  每次都抛出异常
+                详见：sum2.cpp  只有在检测到错误时，才抛出异常
+
+5.标准IO函数
+  1.可以取代标准stream操作符<<和>>的成员函数(用于读写无格式的数据)
+  2.<<和>>会默认跳过起始的空白字符，成员函数不会跳过(由sentry这个对象来控制)
+  3.对异常的处理方式不同：使用成员函数读写无时，不论任何情况，badbit位都会被设置
+                       如果异常屏蔽包含badbit，就重抛该异常
+  4.这些函数运用定义于<ios>中的streamsize来指定数量
+  namespace std {
+    typedef ... streamsize; 
+    ...
+  }
+  1.input相关函数
+    get(s,num)        不包括换行符或EOF
+    get(s,num,t)      不包括t或EOF
+    getline(s,num)    包括换行符或EOF
+    getline(s,num,t)  包括t或EOF
+    read(s,num)       EOF
+    readsome(s,num)   EOF
+    等等
+    详细的成员函数可见：15.5.1 P768
+  2.output相关函数
+    put
+    write
+    flash
+    详细的成员函数可见：15.5.2 P770
+
+  3.实例详见：charcat1.cpp
+
+  4.sentry对象
+    1.classes basic_istream和basic_ostream提供了一个成员sentry对象
+      用来处理流的预处理和善后处理(构造函数位预处理，析勾函数位善后处理)
+    2.sentry的构造函数接受一个stream对象位实参，之后的预处理和善后处理都是针对这个stream的
+    3.对于instert，sentry对象可以有以讹过额外实参，来设置是否跳过开始的空白字符
+      sentry se(strm,true);
+      (预处理和善后处理包括：多个stream之间的同步化，检查stream是否正常，跳过空白字符等等)
+    注意：如果Io操作符直接应用于stream buffer身上，第一件事就是构造其相应的"sentry对象"
+
+6.操控器
+  操控器可以用来修改stream，但并不会额外读取或涂写什么
+  基本操控器定义于<istream> <ostream>
+
+  带实参的操控器
+  std::cout << std::setw(6) << std::setfill(’_’);
+  带实参的操控器，定义于 <iomanip>
+  (带实参的操控器，都与格式化有关)
+
+  1.操控器概览 P775
+
+  2.操控器如何运作
+    操控器实际上是一个被IO操作符<<或>>调用的函数
+    ostream& ostream::operator << ( ostream& (*op)(ostream&)) {
+        return (*op)(*this);
+    }
+    注意：op是一个函数指针(操作符是一个函数指针)
+    例如endl的实际实现：
+    template <typename charT, typename traits> std::basic_ostream<charT,traits>&
+    std::endl (std::basic_ostream<charT,traits>& strm) 
+    {
+        strm.put(strm.widen(’\n’));
+        strm.flush();
+        return strm;
+    }
+  3.用户自定义操控器
+    将换行符之前的内容全部忽略(忽略一行)
+    详见：ignore1.hpp(不带参数的操控器)
+    详见：ignore2.hpp(带参数的操控器)
+
+7.格式化(格式标志)
+  1.格式标志
+    1.提供数个成员，来定义各种IO格式：最小栏位宽度，浮点数精度，填充字符等等
+    2.成员类型ios::fmtflags用来存储配置标志：正数前面是否加正号，boolean是以数字还是文字方式打印
+    3.某些flag形成分组：如 整数8进制，10进制，16进制
+      (使用特定的mask，可以轻松处理此类分组)
+
+    用来访问format flag的成员函数：
+      setf(flags)         设置额外的flags(添加一个flags)，返回所有flag的先前状态
+      setf(flags, grp)    设置分组grp中的flags(grp中的其他flag都清除)，返回所有flag的先前状态
+      unsetf(flags)       清除flags
+      flags()             返回所有目前设置的format flags
+      flags(flags)        将flags设置为新的flag(非额外添加)，返回所有flag的先前状态
+      copyfmt(stream)     从stream中复制所有格式定义
+
+    用于访问format flag的操控器
+    setiosflags(flags)       设置额外的flags(相当于setf(flags))
+    resetiosflags(mask)      清除mask所标识的一组flags(相当于setf(0,mask))
+  2.boolean的IO格式
+    flag：boolalpha
+    若设置就是以文本表示，否则以数字表示(读入意料之外的bool值会设置failbit位)
+
+    操控器
+    boolalpha      强制使用文本表示法(设置ios::boolalpha)
+    noboolalpha    强制使用数字表示法(清除ios::boolalpha)
+  3.栏位宽度，填充字符，位置调整
+    栏位宽度和填充字符
+    成员函数：width()          返回当前最小栏位宽度
+             width(val)       设置val为当前最小栏位宽度，并返回先前的最小栏位宽度
+            fill()            返回当前填充字符(字符不足最小栏位宽度时的填充字符)
+            fill(c)           定义c为当前填充字符，并返回先前的填充字符
+            注意：width()定义的是最小栏位宽度，且设置的值只持续到下一次格式化输出(任何一个数值输出后，栏位宽度值都将恢复为0)
+                 width()不能用来截断输出(因为它不是最大栏位宽度)
+
+    数值对齐(位置调整)
+    flag：
+    mask：adjustfield    left           靠左对齐
+                       rignt          靠右对齐
+                       internal      正负号左对齐，数值右对齐
+                       无             靠右对齐(默认值)
+                       注意：只要进行了一次输出，最小栏位宽度就会恢复为默认值(填充字符和位置调整都不会变化)
+
+
+    操控器：栏位宽度，填充字符，位置调整
+    setw(val)          设置val为最小栏位宽度
+    setfill(c)         设置c为填充字符
+    left               左对齐
+    right              右对齐
+    internal           正负号左对齐，数值右对齐
+
+    关于input时使用栏位宽度
+    读取char*时，可以使用栏位宽度来定义读取的最大字符数(width()不为0，最多能读取width()-1个字符)
+    c语言无法增长空间，错译使用>>读取时，总是应该设置栏位宽度(width()或setw())
+  4.正号与大写
+    flag：showpos        在正数前面加正号
+          uppercase      使用大写字母(可用于十六进制和科学计数法中的英文字母)
+
+    操控器：
+    showpos             强制输出正号
+    noshowpos           强制省略正号
+    uppercase           强制字母大写
+    nouppercase         强制字母小写
+
+  5.数值基值
+    flag：mask：basefield     oct         以八进制方式读写
+                             dec          以十进制方式读写
+                             hex          以十六进制方式读写
+                             无           以十进制输出，读取时视起始字符而决定进制(0x是十六进制，0是是8进制，其余的都是十进制)
+                             注意：这些标志是除非重新设置，否则会保持下去的格式
+                                  stream不支持二进制，但可以使用bitset以二进制方式读写整数值
+                                  如果没有设置，或设置了多个上述标志，则采用十进制
+
+    标志的设置方法：
+    1.清除flag，然后再设置
+      std::cout.unsetf (std::ios::dec);
+      std::cout.setf (std::ios::hex);
+    2.设置flag，自动清除同组的其他flag
+      std::cout.setf (std::ios::hex, std::ios::basefield);
+
+    操控器：
+    oct    以八进制读写
+    dec    以十进制读写
+    hex    以十六进制读写
+
+    flag：showbase     显示数值进制(八进制以0开头，十六进制以0x开头)
+
+    操控器：
+    showbase         显示数值进制
+    noshowbase       不显示数值进制
+
+  6.浮点数表示法
+    flag：floatfield         fixed                  小数计数法
+                             scientific             科学计数法
+                             none                   采用上述两者中最合适者(默认情况)
+                             fixed|scientific       十六进制科学计数法(C++11)
+    flag：showpoint       总是出现小数点，并以0填充尾部
+    成员函数：precision()           返回当前浮点精度
+             precision(val)        设置val为新的浮点精度
+             注意：默认精度十6个十进制位
+                  科学计数法定义出的小数位数，余数十四舍五入，而非全部截断
+
+    操控器：
+    showpoint              总是输出小数点
+    noshowpoint            不需要小数点
+    setprecision(val)      以val为精度
+    fixed                  小数计数法
+￼￼￼￼scientific             科学计数法
+    hexfloat               十六进制科学计数法(C++11)
+    defaultfloat           默认表示法(C++11)
+
+  7.一般格式定义
+    flag：skipws             调用>>读取数值时，自动跳过起始的空白字符(默认这个flag被设置)
+          unitbuf            每次输出后，刷清output缓冲区(标准输出没有设置这个flag，标准错误设置了这个flag)
+
+    操控器：
+    skipws      >>时，跳过起始空白字符
+    noskipws    >>时，不跳过起始空白字符
+    unitbuf     每次写后，刷清output缓冲区
+    nounitbuf   每次写后，不刷清output缓冲区
+
+
+
+
+

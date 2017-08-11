@@ -1,0 +1,60 @@
+1.pair
+  pair是包含两个不同的类型的一种集合(一对值)
+  1.元素访问
+    pair p;
+    p.first;  //访问第一个元素
+    p.second; //访问第二个元素
+    也可以使用tuple－like接口(pair现在支持使用tuple的接口)
+    std::get<0>(p); //访问第一个元素
+    std::get<1>(p); //访问第二个元素
+    std::tuple_size<p>::value  //p里面有多少个值(2个)
+    std::tuple_element<0, p>::type  //p里面第一个元素的类型
+
+  2.构造函数(p61页)
+  3.构造函数和赋值
+    默认构造函数用每个成员的默认构造函数进行构造，如int()等等
+    拷贝构造函数：
+    1.用相同类型的pair进行拷贝构造
+    2.通过使用成员模板隐式类型转换的进行拷贝构造
+    C++11开始，如果自定义类型只有非常量类型的拷贝构造函数，那么把这个类型放入pair，会造成编译期错误
+    3.赋值操作符也以成员模板的形式出现，导致赋值也可以进行隐式类型转换
+  4.逐块式构造
+    其中foo是一个class
+    里面有一个单参构造，单参的类型为tuple
+    有一个args...的构造函数
+    t是一个构造的tuple
+    pair<int,foo> p (piecewise_construct,make_tuple(42),t);
+    注意：只有当piecewise_construct作为第一实参，并且第二第三构造实参都是tuple时，才会调用这个特殊的args...的构造函数
+         这个构造函数会使用tuple中的元素，而不是整个tuple
+         这个特性，主要时被用来调用容器(unordered)map和multimap的成员函数emplace来安插元素时使用
+  5.make_pair()：给两个实参来构造出一个pair
+    可以给2个实参构造
+    可以使用初值列构造
+    make_pair()和std::pair<int,float>相比较，make_pair()无法控制自动转换后的类型(当我们使用函数重载，或者模板的时候，确切的类型非常重要)
+    可以强制使用move语义来初始化: std::make_pair(std::move(s),std::move(t))
+    可以使用引用语义来初始化pair: std::make_pair(std::ref(s),std::ref(t))
+    可以使用tuple的tie接口，来抽取pair中的
+    char c;
+    value: std::tie(std::ignore,c) = p; //p是一个pair，c是指向char c的引用，从p中抽取出来的值会放入char c中
+    (tie可以用引用来建立一个tuple)
+  6.pair的比较，pair可以用各种比较运算符来进行比较
+2.tuple(元素数任意的pair)
+  用make_tuple可以创建一个tuple
+  用get<>()函数模板，可以访问tuple的元素
+  tie: 用引用提取tuple的元素值(建立一个引用构成的tuple，tuple里面的值都是引用)
+  1.tuple中，接受不定个数实参的构造函数，被声明为explicit，这是为了避免单一值被隐式转换为"带着一个元素的tuple"
+    所以，你不可以使用赋值语法，用初值列来为某个tuple赋值，因为这会被视为饮食类型转换
+    (初值列赋值，会先把初值列隐式转换为tuple对象，再进行赋值，因为相应的构造函数带了关键字explicit，所以不允许)
+    std::tuple<int,double> t = {1,2.3}  //error
+    甚至，你不可以将初值列传至期望获得一个tuple的地方
+    例如：
+    std::vector<std::tuple<int,float>> v { {1,1.0}, {2,2.0} }; ／／error
+    std::tuple<int,int,int> foo(){
+    	return {1,2,3} //error
+    }
+    注意：这些对于pair和error都是行得通的，但对于tuple，你必须强制使用make_tuple来准确的将初值转为一个tuple
+  2.tuple的辅助函数
+    tuple_size<tupletype>::value  //获得元素个数
+    tuple_element<idx, tupletype>::type //第idx个元素的类型
+    tuple_cat() //括号中是n个tuple，此函数返回一个tuple，返回的这个tuple包含括号内所有tuple的元素
+  3.tuple的输入输出(p74页)

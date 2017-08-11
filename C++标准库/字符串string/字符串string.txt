@@ -1,0 +1,405 @@
+字符串string
+指的是：基模板类template basic_string<>
+以及其标准特化版string, wstring, u16string, u32string
+
+c++98中，"hello"是一个const char*，赋值时会被隐式转换为char*
+严格来说："hello"是一个const char[6]，被自动蜕变成const char*
+二者是有差异的，特别是在"引用模板参数的时候"，自动类型转换并不会发生，除非你明确使用type trait特性中的std::decay()
+
+c++11带来的最新改变
+1.string已经提供了front()和back()，用来访问第一元素和最末元素
+  还提供shrink_to_fit()来缩小容量
+2.string提供了方便的函数用来将string转换为数值，以及反向转换
+3.data()和c_str()不会再造成指向string的引用，迭代器和指针失效
+4.string提供move语义和初值列
+5.特化版本除了string，wstring之外，还提供了u16string，u32string
+6.string可以间接要求提供一个"结尾字符"(堆string而言时'\0')
+  因为要保证s[s.length()]总是合法，且s.data()返回的字符包含一个"结尾字符"
+7.不再提供string的引用计数版本
+
+实例1: 提炼临时文件名，详见：string1.cpp      13.1.1章
+实例2:提炼单词并反向打印，详见：string2.cpp   13.1.2章
+
+
+
+string的细节描述
+1.定义：
+  1.所有string的基类定义
+namespace std {
+	template <typename charT,
+			  typename traits = char_traits<charT>,
+			  typename Allocator = allocator<charT> > 
+	class basic_string;
+}
+  2.具体的string类型
+namespace std {
+	typedef basic_string<char> string;
+}
+注意：string是针对char而预定义的特化版本
+
+namespace std {
+	typedef basic_string<wchar_t> wstring; 
+	typedef basic_string<char16_t> u16string; //c++11
+	typedef basic_string<char32_t> u32string; //c++11
+}
+注意：对于使用宽字符，存在三个预定义的特化版本
+
+2.string的操作函数
+  1.详细的操作函数列表 P665
+    constructors                   构造
+    destructor                     析勾
+	=, assign()                    赋值
+	swap()                         交换
+	+=, append(), push_back()      添加字符
+	insert()                       插入字符
+	erase(), pop_back()            删除
+	clear()                        清空
+	resize()                       改变字符数量(调整后尾端删除或添加字符)
+	replace()                      替换
+	+                              串接
+	==, !=, <, <=, >, >=, compare() 比较
+	empty()                        判空
+	size(), length()               返回字符数量
+	max_size()                     返回字符的最大可能数量
+	capacity()                     返回重新分配前字符的容量
+	reserve()                      预先分配一定量的内存，以容纳一定数量的字符
+	shrink_to_fit()                缩减内存使符合当前的字符量
+	[ ], at()                      访问某个单一字符
+	front(), back()                访问第一或最末字符
+	>>, getline()                  从一个流读取某值
+	<<                             将某值写入流
+	stoi(), stol(), stoll()        将string转为带正负号的整数
+	stoul(), stoull()              将string转为不带正负号的整数
+	stof(), stod(), stold()        将string转为浮点数
+	to_string(), to_wstring()      将整数/浮点数转换为string
+	copy()                         将string赋值为一个C-string
+	data(), c_str()                将string中的字符串以C-string形式返回
+	substr()                       返回某个子字符串
+	find functions                 查找某个子字符串，或字符
+	begin(), end()                 提供正常迭代器
+	cbegin(), cend()               提供const正常迭代器
+	rbegin(), rend()               提供反向迭代器
+	crbegin(), crend()             提供const反向迭代器
+	get_allocator()                返回分配器
+
+  2.所有字符操作函数的实参规格(string的操作函数往往有多个重载版本，分别使用1，2，3个实参来指定新值)
+    const string& str                       整个string字符串
+	const string& str, size_type idx, 
+                       size_type num        整个字符串string，中从索引idx开始的num个字符
+    const char* cstr                        整个C-string字符串
+	const char* chars, size_type len        字符数组chars中的len个字符
+	char c                                  字符c
+	size_type num, char c                   num个字符c
+	const_iterator beg, const_iterator end  beg，end区间内的所有字符
+	initlist                                初值列内的所有字符
+    注意：1.只有单实参版的const char* 版本才将'\0'视为结尾特殊符号，其他情况下'\0'都被视为普通字符
+         2.把一个空指针传入作为C分格字符串，会导致不明确的行为
+         3.所有操作符都把string当作单一对象处理，所以，对"string的一部分"赋值，比较，附加的操作，必须使用相应的函数
+         4.string未提供的操作函数：正则表达式，文本处理
+
+  3.构造函数和析勾函数
+    string s                            生成一个空的字符串
+    string s(str)                       copy构造，string str的拷贝     
+	string s(rvStr)                     移动copy构造，string str的拷贝(str将不能再被使用)
+	string s(str,stridx)                将string str内从索引stridx开始的字符串copy到s中
+	string s(str,stridx,strlen)         将string str内从索引stridx开始的，且长度为strlen的字符串，copy到s中
+	string s(cstr)                      将C-string作为字符串s的初值
+	string s(chars,charslen)            将C-string的前charslen个字符作为s的初值
+	string s(num,c)                     将num个字符c作为s的初值
+	string s(beg,end)                   将beg，end区间内的字符，作为s的初值
+	string s(initlist)                  以初值列initlist内的字符作为s的初值
+	s.~string()                         析勾
+    注意：1.不能用单一字符来初始化字符串：std::string s(’x’); //error
+            const char*到string的自动类型转换使存在的，从char到string的自动类型转换不存在
+
+  4.string和C-string
+    1.const char*到string提供隐式类型转换，但string到const char*的隐式类型转换使不存在的
+    2.'\0'再string中不存在任何特殊意义，但再C-string中却用来表示结束
+    3.用NULL来替代char*类型的实参，会导致不明确行为
+    4.有三个函数可以将string内容转换为C-string
+      1.data()和c_str()：他们返回的结果会在末尾添加'\0'，来形成一个有效的c-string
+                         但是他们返回的C-string的所有权仍然属于原先的string对象，调用着绝对不能更改它，或释放它的内存
+      2.copy()         ：将string内容复制到调用着提供的字符数组，调用者需要自行天街'\0来形成一个有效的c-string'
+        				 但是他们拷贝完成的字符已经不再属于原先string对象，调用者可以对他们进行更改和释放内存
+
+  5.大小和容量
+    一个string对象，存在三种大小：
+    1.size()和length()：返回string的现有字符数，这两个函数等效
+    					empty()专门用来判空，它比size()和length()更高效
+    2.max_size()      ：返回string能够包含的最大字符数
+    					(这个函数的返回值一般是索引饿最大值减1)
+    					(减1有两个原因：)
+    					 (1.索引最大值本身使npos)
+    					 (2.实现有可能在内部缓冲区末尾添加一个'\0'，以便让这个string可以当作C-string来使用)
+    					(当string长度大于max_size()之后，会抛出异常length_error)
+    3.capacity()	  ：重新分配内存前，string能包含的最大字符数
+
+    string拥有足够的容量很重要，因为:(类似于vector)
+    1.重新分配会造成string的引用，指针，迭代器失效
+    2.重新分配很耗费时间
+    reserve()函数用来避免重新分配而预留一部分容量
+    (reserve()函数在string中和在vector中的差别)
+     (string可以调用reserve()来实际缩减容量，而vector没有这项功能，缩减容量同样是非强制性的)
+    (c++标准规定，只有在回应reserve()和shrink_to_fit()函数时，容量才有可能缩减
+     所以哪怕某些字符被删除或改变的事情发生，只要时被操作字符位置之前的字符，指向他们的引用，指针和迭代器就不会失效)
+
+  6.元素访问
+    string对象访问其中单一字符：下标操作符[]，at()
+    (C++11开始提供了front()，bcak())
+    (索引从0开始，length()-1结束)
+    注意：1.[]不检查索引是否有效，at()检查
+    	 2.一般来说，最末字符的更后面位置也是有效的。他们是由"字符类型的default构造函数所产生"的字符
+    	   比如，string类型就是char '\0'
+    	   (对[]来说，当前字符数是有效索引)
+    	 3.front()，bcak()对空string，其行为是未定义的
+    	 4.对于at()，当前字符数不是一个有效索引
+    	 5.为了改动元素内容，[] at() front() back()都返回元素的引用，所以一旦内存重新分配，这些引用都将失效
+    以下三种情况会使指向string元素的引用或指针失效
+    1.swap()交换两值
+    2.用>>h或getline()读入新值
+    3.调用 ], at(), begin(), end(), rbegin(), rend()之外的非const版本函数
+    (总之，只要往string里插入元素，就有可能造成内存重新分配，导致引用和指针失效)
+
+  7.比较
+    1.常见的比较操作符，操作数可以string和C-string混用
+    2.<, <=, >, >=,这些操作符将根据当前的元素类型，根据字典顺序进行比较
+    3.可以使用compare()来比较子字符串
+      std::string s("abcd");
+
+	  s.compare("abcd")
+	  s.compare("dcba")
+	  s.compare("ab")
+	  s.compare(s)
+	  s.compare(0,2,s,2,2)
+   	  s.compare(1,2,"bcx",2)
+
+  8.更改内容
+    你可以使用不同的成员函数或操作符来更改string的内容
+    1.赋值
+      1.可以使用=号进行赋值，新值可以是string，C-string
+      2.如果使用多个实参来描述新值，可以改用assign()
+    2.交换
+      string自带成员函数swap，这个swap具有常量复杂度
+    3.令string为空
+      由很多方法可以令string为空：
+      std::string s;
+
+	  s = "";
+	  s.clear();
+	  s.erase();
+	4.安插和移除字符
+	  安插insert()
+	  移除remove()
+	  替换replace()
+	  抹除erase()
+	  追加+=，append()，push_back()
+	  注意：1.关于追加
+	  		 +=将单一实参附加于string末尾
+	  		 append()可接受多个实参指明附加值
+	  		 push_back()是为了支持后插迭代器而设置的
+	  		2.关于插入
+	  		 insert()函数插入时需要指明安插位置的索引，新字符将被安置于此位置之后
+	  		 (insert()不支持索引+单字符的组合(只能插入字符串))
+	  		 同时：
+	  		 s.insert(0,1,’ ’);  //此语句会造成歧义
+	  		 因为insert()有以下两个重载
+	  		 insert (size_type idx, size_type num, charT c);
+	  		 insert (iterator pos, size_type num, charT c);
+	  		 其中，0可以被转换成任意一种(不分优劣)
+	  		 为明确操作必须这样：
+	  		 s.insert((std::string::size_type)0,1,’ ’);
+	  		3.关于删除和替换
+	  		 删除erase()，pop_back()
+	  		 替换replace()
+	  		4.调整字符数量
+	  		 resize()：如果实参字符数量比当前的小，则删除末尾的字符
+	  		 		   如果实参字符数量比当前的大，则用默认构造函数构造字符添加在末尾
+	  		 		   (你也可以传入额外实参，来明确新的填充字符为何值)
+
+  9.子字符串及字符串接合
+    1.使用substr()从string内提取子字符串
+    2.使用+，把两个string接合起来(从C++11开始，+也被重载于右值语义)
+
+  10.IO操作符
+    >> 用输入流读取一个string
+    << 把一个string写到输出流中
+    (用法和一般C-string时相同)
+    >>执行方式如下
+     1.如果设置了skipws flag，则跳过开头空格
+     2.持续读取所有字符直到发生下列情形之一
+      1.下个字符为空白字符
+      2.流不再处于good状态(比如遇到EOF)
+      3.流的width()结果大于0，而目前已经读出了width()个字节
+      4.已读取max_size()个字符
+     3.流的width()被设为0
+     (一般而言，读输入流都会跳过开始的空白字符)
+     (output通常也会考虑width()，如果width()大于0，则至少香流中写入width()个字符)
+     (C++11开始，流操作已经支持移动语义，所以可以向流中输入临时对象)
+
+     getline()
+     逐行读取，且不跳过开始的空白字符，直到遇到换行符或EOF(换行符时读取之后丢弃)
+     换行符默认为newline，但可以通过额外实参自行指定
+     (C++11开始，getline支持移动语义，也就是说恶意传递临时对象给他)
+
+  11.搜索和查找
+    1.使用成员函数
+      1.查找单一字符，字符序列或某个字符组
+      2.向前查找或者回头查找
+      3.从string的起点开始查找或任何位置开始查找
+    2.使用正则表达式程序库查找更复杂的自负序列样式
+    3.STL算法查找，你可以搜索单一字符，或指定的字符序列(这些算法允许你提供自己的比较准则)
+
+    搜索和查找的成员函数
+    他们试图找到"与传入之实参值"相等的字符的位置
+    find()                  查找第一个与value相等的字符
+	rfind()                 查找最后一个与value相等的字符
+	find_first_of()         查找第一个与value中某个值相等的字符
+	find_last_of()          查找最后一个与value中某个值相等的字符
+	find_first_not_of()     查找第一个与value中任何值都不想等的字符
+	find_last_not_of()      查找最后一个与value中任何值都不想等的字符
+	注意：1.所有查找函数都反悔序列中"符合条件的"第一个字符的索引，如果查找不成功返回npos
+		 2.这些查找函数的实参体系：
+		  1.第一实参永远是被查找的对象
+		  2.第二实参(可有可无)，指出string内查找的起点
+		  3.第三实参(可有可无)，指出欲查找的字符个数(查找范围)
+		 3.这些实参体系与其他string的成员函数时不同的
+		  1.其他string第一实参是起点的索引值
+		  2.第二第三实参是数值和长度
+	4.查找函数的实参规格
+	const string& value
+	查找值等于value
+
+	const string& value, size_type idx
+	从索引idx处开始查找值等于value
+
+	const char* value
+	查找value(value是一个c-string)
+
+	const char* value, size_type idx
+	从索引idx处开始查找value(value是一个c-string)
+
+	const char* value, size_type idx, size_type value_len
+	从idx处开始查找value的前n个字符(value是一个c-string)
+
+	const char value
+	查找value(value是一个字符)
+
+	const char value, size_type idx
+	从索引idx开始查找value(value是一个字符)
+	注意：STL查找的命名方式也是不同于string查找函数的命名方式
+
+  12.npos的意义
+  	 查找函数失败，会返回npos
+  	 注意：与npos比较的变量，类型一定要是size_type，否则比较无法正确执行，npos可能被定义为-1
+  	 	  避免这种错误的办法是直接检验是否失败：
+  	 	  1.直接检验：if (s.find("hi") == std::string::npos)
+  	 	  2.自行定义npos的值：const int NPOS = -1;
+  	 npos定义：
+namespace std {
+	template <typename charT,
+			  typename traits = char_traits<charT>,
+			  typename Allocator = allocator<charT> > 
+	class basic_string {
+	public:
+		typedef typename Allocator::size_type size_type; ...
+		static const size_type npos = -1;
+		...
+	};
+}
+
+  13.数值转换
+  	string提供了便捷函数用于把string转换为数值，或者是反向转换(这些转换不支持u16string和u32string)
+  	数值转换的操作函数，P652页
+  	stoi(str,idxRet=nullptr, base=10)             转换str为一个int
+	stol(str,idxRet=nullptr, base=10)             转换str为一个long
+	stoul(str,idxRet=nullptr, base=10)            转换str为一个unsinged long
+	stoll(str,idxRet=nullptr, base=10)            转换str为一个long long
+	stoull(str,idxRet=nullptr, base=10)           转换str为一个unsigned long long
+	stof(str,idxRet=nullptr)                      转换str为一个float
+	stod(str,idxRet=nullptr)                      转换str为一个double
+	stold(str,idxRet=nullptr)                     转换str为一个long double
+	to_string(val)                                转换val为一个string
+	to_wstring(val)                               转换val为一个wstring
+	注意：对于string转换为数值
+		  1.会跳过前导的任何空白字符
+		  2.它们允许返回"被处理之最末字符"后第一个字符的索引
+		  3.如果转换无法发生，则抛出std::invalid_argument异常
+		    如果被转换值超出返回类型可表达范围，则抛出std::out_of_range异常
+		  4.对于整数，你可以(也可以不)传递基数
+		  对于数值转换成string或wstring
+		  1.val可以使以下任何类型int, unsigned int, long, unsigned long, long long, unsigned long long, float, double, long double
+
+	数值转换的实例，详见：stringnumconv1.cpp
+
+  14.string对迭代器的支持
+    string拥有随机访问迭代器(根据实现可能是指针，可能是class)
+    如果string内存重新分配，迭代器会失效。
+    为了支持后插迭代器，string提供了push_back()函数
+    1.string迭代器的相关操作(string提供所有迭代器相关函数)
+      指向开始位置的迭代器：常量，非常量
+      指向超尾位置的迭代器：常量，非常量
+      指向开始位置的反向迭代器：常量，非常量
+      指向超尾位置的反向迭代器：常量，非常量
+      指定迭代器区间为初值的构造函数
+      指定迭代器区间为初值的追加函数
+      指定迭代器区间为初值的赋值函数
+      insert
+      (返回第一个新字符的位置)
+      pos位置处插入字符c
+      pos位置处插入num个字符c
+      pos位置处插入迭代器区间内的值
+      pos位置处插入初值列中的值
+      erase
+      (返回下一个字符的位置)
+      删除pos所指的字符
+      删除迭代器区间内的所有字符
+      replace
+      用字符串str替换迭代器区间内的所有字符
+      用C风格字符串替换迭代器区间内的所有字符
+      用C风格字符串的前len个字符替换迭代器区间内的所有字符
+      用num个c字符替换迭代器区间内的所有字符
+      用另外一个"迭代器区间内的所有字符"替换这个"迭代器区间内的所有字符"
+      用初值列中的内容替换迭代器区间内的所有字符
+
+  string迭代器应用实例
+  1.通过一个简单的语句，把string内的所有字符都转换成大写或者小写
+    详见：stringiter1.cpp
+  2.迭代器使用string的另一个实例
+    包括翻转字符串顺序
+    对字符串进行排序
+    排序后删除相邻重复的字符
+    详见：stringiter2.cpp
+  3.使用一个后插迭代，来操作string
+    详见：string3.cpp
+
+  15.国际化
+     展示为一个string打造trait class，允许以"大小写无关"的方式操作字符
+     详见：icstring1.hpp  icstring1.cpp
+
+  16.string和vector
+     string和vector都是容器，底层都是使用动态数组来实现的(所以重新分配内存的机制也非常相似)
+     所以，一般来说，可以把string当成是"以字符为元素的"特殊的vector
+     但还是有如下区别需要特别小心：
+     1.vector的首要目标为处理和操作容器中的元素，而string是容器整体
+       因此，vector的实现优先考虑"容器元素操作行为"的最优化
+     2.string把整个容器视为整体来处理和操作
+       因此，string的实现为"整个容器的赋值和传递的最优化"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

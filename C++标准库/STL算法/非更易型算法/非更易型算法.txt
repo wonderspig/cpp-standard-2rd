@@ -1,0 +1,236 @@
+非更易型算法
+不会改动元素值，也不会改变元素次序
+
+1.元素计数
+  difference_type
+  count (InputIterator beg, InputIterator end, const T& value)
+  difference_type
+  count_if (InputIterator beg, InputIterator end, UnaryPredicate op)
+  1.第一形式计算begin，end区间中，元素值等于value的元素个数
+  2.第二形式计算begin，end区间中，令一元判断式结果为true的元素个数
+
+  根据不同的准则，对元素进行计数，详见：count1.cpp
+
+2.最小值和最大值
+  ForwardIterator
+  min_element (ForwardIterator beg, ForwardIterator end)
+  ForwardIterator
+  min_element (ForwardIterator beg, ForwardIterator end, CompFunc op)
+  ForwardIterator
+  max_element (ForwardIterator beg, ForwardIterator end)
+  ForwardIterator
+  max_element (ForwardIterator beg, ForwardIterator end, CompFunc op)
+  pair<ForwardIterator,ForwardIterator>
+  minmax_element (ForwardIterator beg, ForwardIterator end)
+  pair<ForwardIterator,ForwardIterator>
+  minmax_element (ForwardIterator beg, ForwardIterator end, CompFunc op)
+  1.返回begin，end区间最小元素位置，最大元素位置或者最小和最大元素组成的pair
+
+  打印容器中的最小元素和容器中的最大元素，以及绝对值，详见：minmax1.cpp
+
+3.查找元素
+  1.查找第一个匹配的元素
+  InputIterator
+  find (InputIterator beg, InputIterator end, const T& value)
+  InputIterator
+  find_if (InputIterator beg, InputIterator end, UnaryPredicate op)
+  InputIterator
+  find_if_not (InputIterator beg, InputIterator end, UnaryPredicate op)
+  1.第一形式，返回begin，end区间中，第一个元素值等于value的元素位置
+  2.第二形式，返回begin，end区间中，第一个造成一元判断式op结果为true的元素
+  3.第三形式，返回begin，end区间中，第一个造成一元判断式op结果为false的元素
+
+  运用find查找某个子区间，以元素为4开始，以元素为4结束，详见：find1.cpp
+  find_if() find_if_not() 使用差别极大的查找准则来查找某个元素，详见：find2.cpp
+
+  2.查找前n个联系匹配值
+  ForwardIterator
+  search_n (ForwardIterator beg, ForwardIterator end,
+            Size count, const T& value)
+  ForwardIterator
+  search_n (ForwardIterator beg, ForwardIterator end,
+            Size count, const T& value, BinaryPredicate op)
+  1.第一形式返回begin，end区间内，连续count个元素值都等于value的第一个元素的位置
+  2.第二形式返回begin，end区间内，连续count个元素值都造成一元判断式结果为true的第一个元素的位置
+
+  查找连续的"数值等于7或为奇数"的元素，详见：searchn1.cpp
+
+  3.查找第一个子区间
+  ForwardIterator1
+  search (ForwardIterator1 beg, ForwardIterator1 end,
+          ForwardIterator2 searchBeg, ForwardIterator2 searchEnd)
+  ForwardIterator1
+  search (ForwardIterator1 beg, ForwardIterator1 end,
+          ForwardIterator2 searchBeg, ForwardIterator2 searchEnd, BinaryPredicate op)
+  1.返回begin，end区间内，与searchBeg，searchEnd区间完全吻合的第一个子区间的第一个元素的位置
+  2.第一形式，子区间内的元素必须完全等于searchBeg，searchEnd区间内的元素
+  3.第二形式，子区间内的元素和searchBeg，searchEnd区间内的对应元素必须造成二元判断式的结果为true
+
+  在某个序列中，查找其子序列，详见：search1.cpp
+  查找偶数，奇数，偶数排列而成的子序列，详见：search2.cpp
+
+  4.查找最后一个子区间
+  ForwardIterator1
+  find_end (ForwardIterator1 beg, ForwardIterator1 end,
+            ForwardIterator2 searchBeg, ForwardIterator2 searchEnd)
+  ForwardIterator1
+  find_end (ForwardIterator1 beg, ForwardIterator1 end,
+            ForwardIterator2 searchBeg, ForwardIterator2 searchEnd, BinaryPredicate op)
+  1.两种形式都返回begin，end区间内，与searchBeg，searchEnd区间完全吻合的最后一个子区间的第一个元素的位置
+  2.第一形式，子区间内的元素必须完全等于searchBeg，searchEnd区间内的元素
+  3.第二形式，子区间内的元素和searchBeg，searchEnd区间内的对应元素必须造成二元判断式的结果为true
+
+  如何在一个序列中查找最后一个"与某序列相等"的子序列，详见：findend1.cpp
+
+  5.查找某些元素第一次出现的地点
+  InputIterator
+  find_first_of (InputIterator beg, InputIterator end,
+                 ForwardIterator searchBeg, ForwardIterator searchEnd)
+  InputIterator
+  find_first_of (InputIterator beg, InputIterator end,
+                 ForwardIterator searchBeg, ForwardIterator searchEnd, BinaryPredicate op)
+  1.第一形式返回第一个既出现在区间beg，end又出现在searchBeg，searchEnd区间的元素的位置
+  2.第二形式返回beg，end区间内第一个满足以下条件的元素：和searchBeg，searchEnd区间内每一个元素进行二元判断式的结果都为true
+
+  find_first_of的用法，详见：findof1.cpp
+
+  6.查找两个连续且相等的元素
+  ForwardIterator
+  adjacent_find (ForwardIterator beg, ForwardIterator end)
+  ForwardIterator
+  adjacent_find (ForwardIterator beg, ForwardIterator end,
+                 BinaryPredicate op)
+  1.第一形式返回beg，end区间内"连续两个想等元素"中第一个元素的位置
+  2.第二形式返回beg，end区间内"连续两个元素造成二元判断式op结果为true"中的第一个元素的位置
+
+  adjacent_find两种形式的用法，详见：adjacentfind1.cpp
+
+4.区间的比较
+  1.检验相等性
+  bool
+  equal (InputIterator1 beg, InputIterator1 end,
+         InputIterator2 cmpBeg)
+  bool
+  equal (InputIterator1 beg, InputIterator1 end,
+         InputIterator2 cmpBeg, BinaryPredicate op)
+  1.第一形式判断beg，end区间内的元素都和cmpBeg开头的区间内的元素相等
+  2.第二形式判断beg，end区间内的元素都和cmpBeg开头的区间内的元素都造成二元判断式的结果为true
+  
+  equal的两种形式的使用，详见：equal1.cpp
+  第一次调用检查元素是否相等
+  第二次调用检查两集合内的元素是否具备一一对应的奇偶关系
+
+  2.测不定序之相等性
+  bool
+  is_permutation (ForwardIterator1 beg1, ForwardIterator1 end1,
+                  ForwardIterator2 beg2)
+  bool
+  is_permutation (ForwardIterator1 beg1, ForwardIterator1 end1,
+                  ForwardIterator2 beg2, CompFunc op)
+  1.两个形式都检测beg，end区间内的元素是否为"以beg2为起始区间"的元素的一个排列组合(顺序无所谓的情况下，两个区间的元素是否相等)
+  2.第一形式以==比较元素
+  3.第二形式以使用二元判断式的结果为true来比较元素
+
+  不定序比较的用法，详见：ispermutation1.cpp
+
+  3.查找第一处不同
+  pair<InputIterator1,InputIterator2>
+  mismatch (InputIterator1 beg, InputIterator1 end,
+            InputIterator2 cmpBeg)
+  pair<InputIterator1,InputIterator2>
+  mismatch (InputIterator1 beg, InputIterator1 end,
+            InputIterator2 cmpBeg, BinaryPredicate op)
+  1.第一形式返回beg，end区间和以cmpBeg为起始的区间内，第一组两两相异的元素
+  2.第二形式返回beg，end区间和以cmpBeg为起始的区间内，第一组造成二元判断式结果为false的对应元素
+
+  mismatch两种形式的用法，详见：mismatch1.cpp
+
+  4.检验"小于"
+  bool
+  lexicographical_compare (InputIterator1 beg1, InputIterator1 end1,
+                           InputIterator2 beg2, InputIterator2 end2)
+  bool
+  lexicographical_compare (InputIterator1 beg1, InputIterator1 end1,
+                           InputIterator2 beg2, InputIterator2 end2, CompFunc op)
+  1.两个形式都用来判断beg，end区间内的元素是否小于beg2，end2区间内的元素(小于指的是字典顺序)
+  2.第一形式用<来比较元素
+  3.第二形式用二元判断式返回true来比较元素
+
+  利用这个算法对集合完成"字典次序“的排序，详见：lexicocmp1.cpp
+
+5.用以检验区间
+  c++11开始，用来区间是否符合某条件
+  1.检验是否排序(或局部排序)
+  bool
+  is_sorted (ForwardIterator beg, ForwardIterator end)
+  bool
+  is_sorted (ForwardIterator beg, ForwardIterator end, BinaryPredicate op)
+  ForwardIterator
+  is_sorted_until (ForwardIterator beg, ForwardIterator end)
+  ForwardIterator
+  is_sorted_until (ForwardIterator beg, ForwardIterator end, BinaryPredicate op)
+  1.is_sorted检验beg，end区间是否已经排序
+  2.is_sorted_until返回beg，end区间内第一个破坏排序的元素，没有返回end
+  3.第一第三形式用<进行比较
+  4.第二第四形式使用二元判断式结果为true来进行比较
+
+  如何使用这些算法，详见：issorted1.cpp
+
+  2.检验是否被分割
+  bool
+  is_partitioned (InputIterator beg, InputIterator end, UnaryPredicate op)
+  ForwardIterator
+  partition_point (ForwardIterator beg, ForwardIterator end, BinaryPredicate op)
+  1.is_partitioned判断beg，end内的元素是否被分割，令op返回true的元素在令二元判断式op返回false的元素之前
+  2.partition_point返回分割点的位置，也就是说，对于beg，end区间，is_partitioned必须返回true，才能以相同的二元判断式op调用这个函数
+
+  如何使用这些算法，详见：ispartitioned1.cpp
+
+  3.检验是否形成堆heap
+  bool
+  is_heap (RandomAccessIterator beg, RandomAccessIterator end)
+  bool
+  is_heap (RandomAccessIterator beg, RandomAccessIterator end, BinaryPredicate op)
+  RandomAccessIterator
+  is_heap_until (RandomAccessIterator beg, RandomAccessIterator end)
+  RandomAccessIterator
+  is_heap_until (RandomAccessIterator beg, RandomAccessIterator end,
+                 BinaryPredicate op)
+  1.is_heap判断beg，end区间内的元素是否形成一个heap(意味着beg是最大元素之一)
+  2.is_heap_until为beg，end区间内第一个破坏排序使无法成为heap，堆的元素位置(该元素比第一个元素更大)
+  3.第一和第三形式用<号进行比较
+  4.第二第四形式使用二元判断式的结果为true的结果进行比较
+
+  如何使用这些算法，详见：isheap1.cpp
+
+  4.检验All Any None
+  bool
+  all_of (InputIterator beg, InputIterator end, UnaryPredicate op)
+  bool
+  any_of (InputIterator beg, InputIterator end, UnaryPredicate op)
+  bool
+  none_of (InputIterator beg, InputIterator end, UnaryPredicate op)
+  1.这些算法判断，beg，end区间是否全部，或至少一个，或没有任何元素造成一元判断式的结果为true
+  2.如果区间为null，all_of和none_of返回true，any_of返回false
+
+  如何使用这些算法，详见：allanynone1.cpp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

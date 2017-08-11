@@ -1,0 +1,54 @@
+1.挑选最小值和最大值 P134
+  1.接受2个值的版本
+    min和max：如果两个值相等，返回第一个元素
+    minmax：如果两个值相等，返回两个值组成的pair
+    所有接受2个值的版本，返回的是个引用
+  2.接受初值列的版本
+    min和max：返回多个最小值或最大值中的第一个
+    minmax：返回初值列中第一个最小值和最后一个最大值组成的pair
+    所有接受初值列的版本，返回的则是比较值的拷贝
+  3.接受带比较准则的那个实参，应该是个函数对象(二元谓词)
+    应判断：第一实参是否小于第二实参
+           第一实参小于第二实参，返回true
+           第一实参不小于第二实参，返回false
+  详见：minmax1.cpp
+
+  注意：
+  min和max的接受2个值的版本要求传入的两个值，类型相同
+  int i;
+  long l;
+  ...
+  std::max(i,l);  //ERROR
+  std::max({i,l}); //ERROR
+  但是，如下这样是OK的
+  std::max<long>(i,l); // OK 
+  std::max<long>({i,l}); // OK
+
+2.两值互换
+  可以交换任意变量x和y的值
+  std::swap(x,y);
+  注意：swap内部是按照移动语义来进行交换的，所以如果你传入的类型没有提供移动构造或移动赋值，会抛出异常
+
+3.增补的比较操作符!=, >, <=, >=
+  定义在名称空间std::rel_ops中
+namespace std {
+    namespace rel_ops {
+		template <typename T>
+		inline bool operator!= (const T& x, const T& y) {
+    		return !(x == y);
+		}
+
+		template <typename T>
+		inline bool operator> (const T& x, const T& y) {
+			return y < x; 
+		}
+		template <typename T>
+		inline bool operator<= (const T& x, const T& y) {
+    		return !(y < x);
+		}
+		template <typename T>
+		inline bool operator>= (const T& x, const T& y) {
+    		return !(x < y);
+		}
+	}
+}

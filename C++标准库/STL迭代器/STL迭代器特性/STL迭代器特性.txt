@@ -1,0 +1,49 @@
+1.迭代器分为不同的类型：(注意继承关系)
+namespace std {
+struct output_iterator_tag {
+};
+struct input_iterator_tag {
+};
+struct forward_iterator_tag: public input_iterator_tag {
+};
+struct bidirectional_iterator_tag : public forward_iterator_tag {
+};
+struct random_access_iterator_tag: public bidirectional_iterator_tag { };
+}
+注意：forward_iterator迭代器派生自input_iterator，和output_iterator毫无关系
+
+2.迭代器所指向的元素类型
+namespace std {
+	template <typename T>
+	struct iterator_traits {
+		typedef typename T::iterator_category  iterator_category;   //迭代器类型
+		typedef typename T::value_type         value_type;          //迭代器所指向的元素值类型
+		typedef typename T::difference_type    difference_type;     //迭代器之间的距离类型
+		typedef typename T::pointer            pointer;             //指向元素的指针类型
+		typedef typename T::reference          reference;           //指向元素的引用类型
+	}; 
+}
+有两个优点：
+1.确保每一个迭代器都定义了所有必要的类型定义
+2.能够针对特定的迭代器实例化(适用于寻常指针作为迭代器)
+对寻常指针的实例化 例：
+namespace std {
+	template <typename T>
+	struct iterator_traits<T*> {
+		typedef T                              value_type;
+		typedef ptrdiff_t                      difference_type;
+		typedef random_access_iterator_tag     iterator_category;
+		typedef T*                             pointer;
+		typedef T&                             reference;		
+	};
+}
+
+用迭代器特性(iterator trait)编写范型函数 详见9.5.1章
+1.运用迭代器的value_type来实现元素的循环往复的移动
+2.运用迭代器的iterator_category，来为不同的迭代器来采取不同的实现
+3.distance()的实现
+
+用迭代器特性(iterator trait)编写自己定义的迭代器，两种办法
+1.提供全部的5种类型定义
+2.为iterator trait结构体提供一个偏特话版本
+详见：9.6章

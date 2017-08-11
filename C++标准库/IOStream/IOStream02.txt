@@ -1,0 +1,387 @@
+8.国际化
+9.文件访问
+  1.标准库定义了四个类模板，并预先定义了四个标准特化版本
+    class template basic_ifstream<>    特化版本是ifstream和wifstream，用来读文件
+    class template basic_ofstream<>    特化版本是ofstream和wofstream，用来写文件
+    class template basic_fstream<>     特化版本是fstream和wfstream，用来读写文件
+    class template basic_filebuf<>     特化版本是filebuf和wfilebuf，被其他类用来实际的读写文件操作
+
+    声明和定义：
+	  namespace std {
+		  template <typename charT,
+				    typename traits = char_traits<charT> > 
+		  class basic_ifstream;
+		  typedef basic_ifstream<char> ifstream; 
+		  typedef basic_ifstream<wchar_t> wifstream;
+
+          template <typename charT,
+                    typename traits = char_traits<charT> >
+		  class basic_ofstream;
+		  typedef basic_ofstream<char> ofstream; 
+		  typedef basic_ofstream<wchar_t> wofstream;
+
+		  template <typename charT,
+                    typename traits = char_traits<charT> >
+		  class basic_fstream;
+		  typedef basic_fstream<char> fstream; 
+		  typedef basic_fstream<wchar_t> wfstream;
+
+          template <typename charT,
+                    typename traits = char_traits<charT> >
+		  class basic_filebuf;
+		  typedef basic_filebuf<char> filebuf; 
+		  typedef basic_filebuf<wchar_t> wfilebuf;
+	  }
+	注意：1.和C相比，C++文件流的最大好处就是文件的自动管理(构造时期自动打开，析构时期自动关闭)
+	     2.对于可读可写的流，不能读写动作之间任意转换读写属性(如一定需要转换，当中需要进行一个seed动作)
+	       例外是，如果已经读到了EOF，那么可以立即写入字符
+
+    文件stream以char*为构造函数参数，则会打开这个C字符串所代表的文件
+    (成功与否会反应在stream的状态之中)
+    详见：fstream1.cpp
+    (C++11开始，文件stream接受string类型的字符串为构造函数实参，用string类型来作为文件名)
+    (在C++11之前，往文件stream中输入string类型，调用的重载是void*，所以打印出来的是地址)
+    (如今，往文件stream中输入string类型，可以正确打印string的内容)
+
+  2.文件stream的移动和右值语义
+    C++11开始，文件stream支持了移动和右值语义。
+    具体实现是ostream提供了一个output操作符，而istream提供了一个input iterator
+    所以现在可以使用临时创建出来的stream对象(比如，写到一个临时创建的文件流)
+    详见：fstream2.cpp
+    注意：c++11的文件stream现在支持了move和交换语义
+         这意味着，你可以你可以传递一个文件stream作为实参，或让某个函数返回一个文件stream
+         (一个文件流被创建，但却要再作用域之外使用它)
+         (比如再局部函数中创建，在外部函数中使用，可以返回文件stream)
+         (或者在外部函数中创建，在局部函数中使用，可以传参给局部函数)
+         (或者在堆中创建文件stream，在不需要使用的时候delete)
+
+  3.文件标志(文件用来读，写，追加，清空等等)
+    ios_base定义了一组文件标志，其类型为openmode(类似屏蔽位类型)
+    in     打开用于读取(istream的默认类型)
+	out    打开用于写入(ostream的默认类型)
+	app    追加模式打开
+	ate    打开文件后，文件指针移动到文件尾端
+	binary 二进制方式打开(不替换特殊字符，例如换行符或文件结束符)
+		   (复制文件时硬是用二进制模式，以文本处理则使用普通模式)
+	注意：这些操作符使用|组合起来(这些操作符是可有可无的)
+
+	这些文件标志的各种组合和c语言中的对应关系：
+	in               读取(来源文件必须存在)                  "r"
+	out              清空后读写(有必要才创建)                "w"
+	out|trunc        清空后涂写(有必要才创建)                "w"
+	out|app          追加(有必要才创建)                      "a"
+	app              追加(有必要才创建)                      "a"
+	in|out           读写，文件指针在起点(文件必须存在)        "r+"
+	in|out|trunc     先清空再读写追加(有必要才创建)            "w+"
+	in|app           在尾端更新追加(有必要才创建)              "a+"
+	in|out|app       在尾端更新追加(有必要才创建)              "a+"
+	注意：1.文件为读或者写打开，与文件stream无关，文件sream只是在缺省情况下定义出默认开启模式
+		 2.开启模式，实际是被传递给stream buffer的，stream buffer才是真正打开文件的
+
+	文件stream可以明白的开启或关闭，使用的是文件stream的成员函数：
+	open(name)             默认模式打开文件stream
+	open(name,flags)       以flags模式打开文件stream
+	close()                关闭文件stream
+	is_open()              判断文件是否被打开
+	具体使用，程序打开所有文件，然后将其内容写出
+	详见：cat1.cpp
+	注意：处理文件过后，必须使用clear()来清楚stream的状态，这非常必要
+		 open不会清除任何状态标志，因此如果一个stream未处于良好状态，open之后要先调用clear()
+
+  4.随机访问(用文件指针进行文件的随机读写)
+    basic_istream<>         tellg()                  返回读取位置
+    						seekg(pos)               设置绝对读取位置
+    						seekg(offset,rpos)       设置相对读取位置
+
+    basic_ostream<>			tellp() 				 返回写入位置
+    						seekp(pos)               设置绝对写入位置
+    						seekp(offset,rpos)       设置相对写入位置
+    注意：1.g表示get，p表示put
+    	 2.和标准输入输出相关联的类型不支持这些成员函数(cout，cin，cerr)
+    	 3.绝对位置的使用，指地是用tell系列函数返回的位置，用来传递给pos参数
+    	   pos是一个pos_type类型，这并不是一个正数或者索引的类型
+    	   (逻辑位置和实际未可能不同，windows的换行符实际位置是两个字节，逻辑位置是一个字节，或者用多字节来表示字符的情况)
+    	     (C++的pos_type类型比较复杂，他是一个全局的模板类fpos<>所定义出来的streampos类型)
+    	     (streampos类型再定义出char trait中的pos_type类型，stream中的pos_type使用的是char trait中的pos_type类型)
+    	     (总之pos_type类型无论如何都不可能是一个整数类型，使用stream中的位置的时候，一定要使用pos_type类型)
+    	 4.相对位置，偏移量可以和三个位置有关：
+    	   beg     相对于文件起始位置
+    	   cur     相对于文件当前位置
+    	   end     相对于文件结束位置
+    	   注意：1.偏移量的类型是off_type，也是间接的由streamoff定义出来的，和pos_type类似(streamoff是一个整数值)
+    	        2.文件位置只再文件长度范围内有效，超出这个范围将导致不明确的行为
+    具体使用，一个函数将文件内容写出两次  
+    详见：cat2.cpp
+    注意：1.用file.rdbuf()来打印内容，是直接对文件缓冲区进行操作，不会改变stream的状态。
+           (如果用stream接口函数进行操作，则必须先clear()清除状态，因为在读到文件尾端时，会设置failbit和endbit标志)
+         2.对标准stream而言，同一个stream缓冲区只维护一个文件指针，所以多个共享同一个缓冲区的stream共同读写，能保证读写的顺序
+
+  5.使用文件描述器(文件描述符)
+    可以用一个文件描述符和stream关联起来，方法是，用一个文件描述符来初始化文件stream。
+    (C++没有提供)
+
+10.为string设计的string class(相当于sprintf的功能)
+   用来读string会写string
+   在没有IO通道的情况下(独立于真实io设备之外)，使用stream
+   C++11开始，可以使用string类型(之前是C风格string)来进行操作
+   1.String Stream Classes
+     和文件stream一样，针对string，有如下stream class
+     class template basic_istringstream<>     特化版本istringstream和wistringstream，用来读string
+     class template basic_ostringstream<>     特化版本ostringstream和wostringstream，将数据写进string
+     class template basic_stringstream<>      特化版本stringstream和wstringstream，用来读写string
+     class template basic_stringbuf<>         特化版本stringbuf和wstringbuf，其他stream用来实际读写string的动作
+
+     声明和定义：
+	namespace std {
+		template <typename charT,
+                  typename traits = char_traits<charT>,
+				  typename Allocator = allocator<charT> > 
+		class basic_istringstream;
+		typedef basic_istringstream<char> istringstream; 
+		typedef basic_istringstream<wchar_t> wistringstream;
+
+		template <typename charT,
+                  typename traits = char_traits<charT>,
+				  typename Allocator = allocator<charT> > 
+		class basic_ostringstream;
+		typedef basic_ostringstream<char> ostringstream; 
+		typedef basic_ostringstream<wchar_t> wostringstream;
+
+		template <typename charT,
+                  typename traits = char_traits<charT>,
+				  typename Allocator = allocator<charT> > 
+		class basic_stringstream;
+		typedef basic_stringstream<char> stringstream; 
+		typedef basic_stringstream<wchar_t> wstringstream;
+
+		template <typename charT,
+                  typename traits = char_traits<charT>,
+				  typename Allocator = allocator<charT> > 
+		class basic_stringbuf;
+		typedef basic_stringbuf<char> stringbuf;
+		typedef basic_stringbuf<wchar_t> wstringbuf; 
+	}
+
+	 有一个主要成员函数：
+	 str()          将缓冲区内容当作一个string返回
+	 str(string)    将string设置为缓冲区内容
+	 注意：str()返回的string是拷贝
+	 string流如何使用：详见：sstream1.cpp
+	 除了文件中的基本应用之外：
+	 1.删除string流中的缓冲区：strm.str("");
+	 2.C++11之前，用string stream进行流的输入，调用的重载是void*，打印的结果将会是地址
+	   而C++11开始，如果string stream没有调用str()成员函数，就直接进行流的输入，将会编译期间出错
+
+     string stream的典型应用：
+     1.写string stream的典型应用，是用户自定义类型的>>操作符
+     2.读string stream的典型应用，格式化的从string 中读取数据
+     3.可以用现有string作为初值来构造string stream，并附上flag确定读写或追加等等模式
+       (如定义了追加，则新加入的数据可以附加于即有string之后)
+
+  2.string流的move语义
+    c++11开始，string流开始支持移动语义和右值引用。
+    具体实现是ostream提供了一个output操作符，而istream提供了一个input iterator
+    所以现在可以使用临时创建出来的stream对象(比如，写到一个临时创建的string流)
+
+    具体使用，详见：sstream2.cpp
+    注意：同文件stream一样
+    	 c++11的string stream现在支持了move和交换语义
+         这意味着，你可以你可以传递一个string stream作为实参，或让某个函数返回一个string stream
+
+  3.char* stream class
+    已经淘汰，具体使用可见：15.10.3 P807
+
+11."用户自定义类型"之IO操作符
+  1.实现一个output操作符
+  	所谓的用户自定义之IO操作符，类似于操作符的重载
+	stream << object
+	其实际是：
+	stream.operator<<(object)
+	operator<<(stream,object)
+
+	实例详见：frac1out.hpp
+	实例详见：frac2out.hpp 两者对比
+	注意：最小栏位宽度的问题，因为只仅仅作用于下一次输出，所以对拼接而成的分数输出会存在问题
+	     (分子设置了最小栏位宽度，到了输出分母的时候，先前设置的最小栏位宽度已经失效了)
+	     解决这个问题的方案是，先不设置栏位宽度的把分子分母全部输入到string中(通过string流)
+	     然后再设置最小栏位宽度后，直接输出这个string
+	注意：对于std命名空间内的类型，用户自己写出重载的<<时，会有一些局限，无法再ADL的情况下被找到
+	     典型的情况时使用ostream iterator时，例如：
+		template <typename T1, typename T2>
+		std::ostream& operator << (std::ostream& strm, const std::pair<T1,T2>& p) 
+		{
+			return strm << "[" << p.first << "," << p.second << "]"; 
+		}
+		std::pair<int,long> p(42,77777); std::cout << p << std::endl; // OK
+
+		std::vector<std::pair<int,long>> v;
+		...
+		std::copy(v.begin(),v.end(), // 在ostream iterator中使用，会出现错误
+             		std::ostream_iterator<std::pair<int,long>>(std::cout,"\n"));
+
+  2.实现一个input操作符
+    input操作符实现原则和output相同
+    但是input会读取失败，所以为了应付这种情况，必须做一些特殊的处理
+
+    实例，简单做法，不检测不理会差错状态：
+    详见：frac1in.hpp
+    分析：1.只是用于字符类型为char所对应的stream，即不检测两数字之间的字符是否为"/"，也不检测读到的数据是否有意义
+         2.如果读取不成功，以引用方式传入的参数也已经被改动
+
+    实例，灵活法，改进了上述问题：
+    详见：frac2in.hpp
+
+  3.以辅助函数完成IO
+    IO操作时需要访问私有成员(可以把访问的任务交给类的公有成员函数(辅助函数)，由这些共有成员函数去对私有成员进行操作)
+    注意：关于把<<和>>是否实现为友元
+         1.如果你的类不打算作为基类，那么就实现为友元。
+         2.如果要作为基类，就应该实现为成员函数
+         原因是：友元不可以是虚函数，无法实现多态，当基类指针指向子类的时候，无法调用到子类的<<或>>操作符
+
+  4.用户自定义之格式标志
+    可以配合自定义的操作符，定义这个操作符的格式标志
+    机制：每一个流都有一个附带着的数组
+    	 1.xalloc()函数可以取得这个数组中未使用的一个索引值
+    	 2.成员函数iword()和pword()，用这个索引值为参数，来访问数组中这索引值所代表的元素的实际内容
+    	   iword()读到的是long值，pword()读到的是void值
+    	 3.访问形式为用iword()或pword()访问long或void对象
+    	 4.long／void对象的初始值为0(0就是false，所以可以代表相应的数值没有被访问，也就是采用默认值)
+    举例，根据选项来确定是否给分数的分子分母之后加上空格
+	static const int iword_index = std::ios_base::xalloc();
+	std::ostream& fraction_spaces (std::ostream& strm) 
+	{
+       strm.iword(iword_index) = true;
+       return strm;
+	}
+	std::ostream& operator<< (std::ostream& strm, const Fraction& f) {
+		if (strm.iword(iword_index)) {
+			strm << f.numerator() << " / " << f.denominator(); }
+		else {
+			strm << f.numerator() << "/" << f.denominator();
+		}
+		return strm;
+   }
+   注意：以操控器的方式实现
+
+   copyfmt()函数会复制所有的格式信息(包括iword()和pword()访问的array)，所以有些对象会存在问题：
+   1.比如跟随stream的array中，存放的是地址，那么copyfmt()函数复制的是地址，而不是地址指向的数据
+     那么一旦对这个地址所指向的内容进行改变，则所有的stream都会跟着改变
+   2.如果在一个stream上面使用pword()，那么它销毁的时候，它所关联的对象最好一并销毁
+     (这种对象应该使用深拷贝，而不是浅拷贝)
+
+   解决方案：
+   ios_base定义了一个回调机制，用来支持以上两种行为：
+   1.销毁stream的时候，连带着删除某个对象
+   2.执行深拷贝
+   用函数register_callback()来注册回调函数：
+	namespace std {
+		class ios_base {
+		public:
+			enum event { erase_event, imbue_event, copyfmt_event };
+
+			typedef void (*event_callback) (event e, ios_base& strm, int arg);
+			void register_callback (event_callback cb, int arg);
+		}; 
+	}
+	分析：1.第二个参数是一个stream对象，正是这个对象引发了函数的回调，
+		 2.第三个参数int是回调函数的参数，例如，可以，用来表现一个索引，表示array的一个元素
+		 3.第一个参数e用来区分回调的原因：
+		   ios_base::imbue_event          程序运用imbue()设了一个locale
+		   ios_base::erase_event		  stream被摧毁，或copyfmy()被使用
+		   ios_base::copy_event           copyfmy()被使用
+		   注意：1.如果copyfmy()被执行，则会进行两次回调操作
+                  1.第一次回调是在复制之前，携带参数erase_event，用来完成必要的清除工作
+                    这次回调是针对原先注册好的回调函数(复制之前原格式内注册的回调函数)
+                  2.第二次回调是在复制之后，携带参数copy_event，用来完成深拷贝的操作
+                    此时，整个格式化及回调列表已经复制好了，原先的格式化及回调列表已经删除
+                    第二次回调是针对刚刚被复制过来的回调函数(复制之后，已经复制过来的回调函数)
+          4.回调次序是与注册顺序相反的
+
+  5.用户自定义IO操作符的规约(与预定义IO操作符对应)
+  	可见：15.11.5章 P818
+
+12.	连接input和output stream
+	用途：1.在读取数据之前，确保屏幕上已经打印出提示文字
+	     2.对同一个stream读或者写(主要发生在文件stream上)
+	     3.用不同的格式处理同一个流
+  1.以tie完成松耦合(两个stream还是拥有各自的缓冲区，但是在使用自己的缓冲区之前，保证先清空对方的缓冲区)
+    将一个stream连接到一个output stream身上(两者的缓冲区是同步的)
+    具体实现是：output stream在另一个stream执行输入或输出动作前，先清空自己的缓冲区
+    (对于output而言，flush()会被调用)
+    连接一个stream和一个output stream的成员函数：
+    tie()                返回一个指针，指向output stream，这个output stream会连接到当前stream身上
+    tie(ostream* strm)   将strm所指向的output stream连接到当前的stream身上，并指向一个先前所连接的output stream
+    注意：每一个stream只能连接一个output stream，但是一个output stream可以连接到多个stream
+
+    要删除一个stream上绑定的output stream：std::cin.tie (nullptr);
+
+    可以将一个output stream连接到另一个output stream：
+    std::cerr.tie (&std::cout);       //在往标准错误写东西之前，先清空标准输出的缓冲区
+
+  2.以stream缓冲区完成紧耦合(两个stream共同拥有用一个缓冲区)
+    通过成员函数rdbuf()，可以使两个stream共享同一个缓冲区，完成紧耦合。
+    rdbuf()               返回一个指针，指向stream缓冲区
+    rdbuf(streambuf*)     将实参所指的stream缓冲区安装到当前stream身上
+                          并返回一个指向先前stream缓冲区的指针
+    注意：当数个stream使用同一个缓冲区的时候，可以对同一个输入，或输出通道读写数据，不必困扰于IO次序
+
+    运用实例：streambuffer1.cpp
+    运用实例：streambuffer2.cpp
+    分析：可以运用两个stream，用各自的格式，对IO通道进行输出(且输出内容不会重叠)
+         stream对象销毁时并不会清空缓冲区，要确保缓冲区清空，不许手动调用flush()
+         (只有basic_istream和basic_ostream不清空缓冲区，文件流，string流销毁时都会清空缓冲区)
+         (但文件流和string也不会清空rdbuf()设置的缓冲区)
+
+  3.将标准stream重定向
+    可以通过为stream设置缓冲区，来重定向stream
+    (stream的缓冲区一头连接这stream，一头连接外部表述，如文件，标准输出，标准输入等等，外部表述这一端是不变的)
+    (所以当把一个流绑定到一个缓冲区的时候，这个流的所有输入和输出，都是从stream的缓冲区连接的外部表述中进行)
+    (达到重定向的目的)
+
+    cout的信息不被送到标准输出，而是被送到cout.txt
+    std::ofstream file ("cout.txt");
+    std::cout.rdbuf (file.rdbuf());
+
+    copyfmt()将某个stream的所有格式信息赋给另一个stream对象：
+    std::ofstream file ("cout.txt");
+    file.copyfmt (std::cout);
+    std::cout.rdbuf (file.rdbuf());
+
+    注意：要非常小心，这里的file是一个局部变量(除了basic_istream和basic_ostream之外，别的stream都会清除缓冲区)
+    	 现在cout和file共享缓冲区，当file销毁，连带着file的缓冲区也销毁，那么cout此时就没有缓冲区了
+
+    下面的实例中，redirect()函数负责解决这个问题：
+    详见：streamredirect1.cpp
+    分析：用一个智能指针，指向stream的缓冲区，当这个缓冲区被销毁的时候，会调用智能指针的析构Lambda
+         这个Lambda中，把cout原来的缓冲区还给了cout
+
+ 4.可读可写的stream
+ 	连接两个stream来进行读写操作
+ 	1.通常可以打开一个fstream来进行读写操作
+ 	std::fstream file ("example.txt", std::ios::in | std::ios::out);
+
+ 	2.也可以使用两个sream对象，一个用来读，一个用来写
+ 	std::ofstream out ("example.txt", ios::in | ios::out); 
+ 	std::istream in (out.rdbuf());
+ 	注意：1.out的声明中，已经打开了文件，且权限位时读写(权限位时针对stream缓冲区的，不是针对stream的)
+ 		 2.in并不是专门为文件而设计的ifstream，只是普通的istream
+ 		   因为文件已经打开，且已经和stream缓冲区绑定(out stream缓冲区的外部表述)
+ 		   所以，in连接上缓冲区之后，就可以对文件进行写操作了
+ 		 3.当out被销毁的时候，文件就被关闭了
+
+ 	3.产生一个外部表述连接到文件的stream缓冲区，把这个缓冲区安装到两个负责读写的stream上
+ 	std::filebuf buffer;
+	std::ostream out (&buffer);
+	std::istream in (&buffer);
+	buffer.open("example.txt", std::ios::in | std::ios::out);
+	注意：1.filebuf是basic_filebuf<>对字符类型char的特化版本，他定义出了file stream所用的缓冲区类型
+
+	实例，在一个循环中对一个文件，写入4行，每写完一行，文件的所有内容都被写到标准输出上面
+	详见：streamreadwrite1.cpp
+	分析：1.尽管用两个不同的stream对象写，但是IO次序还是没有乱(紧耦合)
+		 2.其中的文件指针也是两个stream通用的，并没有各自独立
+		 3.每次写完文件后，都调用seek系列成员函数，再开始读，读完到文件尾部，却直接开始继续写入
+		   (这是因为在文件读写这两个操作之间，除非到达文件尾部，否则必许进行一次seek调用，否则后果是未定义的)
+		 4.也可以不必逐字处理，可以运用单一语句打印全部内容
+		   方法为法指向文件缓冲区的指针，赋给<<操作符
+		   std::cout << input.rdbuf();

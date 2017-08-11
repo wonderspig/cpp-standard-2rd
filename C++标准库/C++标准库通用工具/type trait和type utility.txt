@@ -1,0 +1,148 @@
+type trait是定义在标准库的一系列用来判断类型的各种行为的模板类的统称
+1.type trait中用来检验类型的性质的工具 P126页
+  如：是否是类型void   is_void<T>
+      是否是整数类型   is_integral<T>
+2.type trait中用来检验class性质的工具 P127页
+  如：判断class是否为空，不带任何成员，虚成员函数，或虚基类
+      is_empty<T>
+      class能够完成默认构造
+      is_default_constructible<T>
+3.type trait中用来检验类型关系的工具，包括检查class type提供了哪一种构造函数，和哪一种赋值操作符
+  如：T1和T2是否是相同类型      is_same<T1,T2>
+      类型T是类型D的基类        is_base_of<T,D>
+4.类型修饰符(这一类trait为类型添加一个属性，或者移除一个属性)
+  如：对应之不带const的类型    remove_const<T>
+      对应之不带volatile的类型  remove_volatile<T>
+5.其他类型的trait工具，他们用来查询特殊的属性，检查类型关系，或提供更复杂的类型变化
+  如：判断array的维度        rank<T>
+     判断维度的宽度          extent<T>
+
+分析：
+可以根据不同的类型，来产生不同的行为：
+val如果是指针，就打印相关消息
+如果不是指针，也打印相关消息
+template <typename T>
+void foo (const T& val)
+{
+    if (std::is_pointer<T>::value) {
+        std::cout << "foo() called for a pointer" << std::endl;
+    }
+    else {
+        std::cout << "foo() called for a value" << std::endl; 
+    }
+    ...
+}
+
+
+但是不能这么干：
+template <typename T>
+void foo (const T& val)
+{
+    std::cout << (std::is_pointer<T>::value ? *val : val) << std::endl;
+}
+这是因为如果val不是指针，则*val将会报编译期错误
+
+
+但是你可以这么干：
+template <typename T>
+void foo_impl (const T& val, std::true_type) 
+{
+    std::cout << "foo() called for pointer to " << *val << std::endl;
+}
+template <typename T>
+void foo_impl (const T& val, std::false_type) 
+{
+    std::cout << "foo() called for value to " << val << std::endl;
+}
+template <typename T>
+void foo (const T& val)
+{
+    foo_impl (val, std::is_pointer<T>());
+}
+总结：std::is_pointer<T>会产生出一个类型
+     如果判断正确，std::is_pointer<T>会在编译期产生std::type_true，对应的std::is_pointer<T>::value则是true
+     如果判断错误，std::is_pointer<T>会在编译期产生std::type_false，对应的std::is_pointer<T>::value则是false
+     std::type_true和std::type_false都是类型名称
+     通过函数的重载来决定什么类型产生什么行为
+
+举例：
+针对整数类型的弹性重载
+void foo (short);
+void foo (unsigned short);
+void foo (int);
+...
+void foo (float);
+void foo (double);
+void foo (long double);
+
+如果使用type trait工具
+template <typename T>
+void foo_impl (T val,true_type);
+
+template <typename T>
+void foo_impl (T val,false_type);
+
+template <typename T>
+void foo (T val)
+{
+    foo_impl (val, std::is_integral<T>());
+}
+
+处理共通类型
+这个如何处理：
+template <typename T1, typename T2> 
+??? min (const T1& x, const T2& y);
+
+解决方案
+std::common_type<T1,T2>可以计算出被传入的两个类型的共通类型
+template <typename T1, typename T2>
+typename std::common_type<T1,T2>::type min (const T1& x, const T2& y);
+
+
+Reference Wrapper(引用外覆器)
+把变量变成引用
+例如：
+int x    //是一个普通变量
+foo (std::ref(x)); //此时x以引用的方式传递给函数foo
+
+
+
+Function Type Wrapper(函数外覆器)
+例如有一个函数
+void func (int x, int y);
+那么
+std::function<void(int,int)>;
+返回和以上函数有一样类型的函数指针
+C++允许把std::function<void(int,int);作为类型放入容器等等行为
+如：std::vector<std::function<void(int,int)>> tasks;
+如果是成员函数，则函数外覆器必须把包含成员函数的对象，作为第一实参
+例如：
+class C 
+{
+public:
+    void memfunc (int x, int y) const;
+};
+std::function<void(const C&,int,int)> mf; //定义这个成员函数的函数指针
+mf = &C::memfunc; //给这个函数指针赋值
+mf(C(),42,77); //调用这个函数指针
+
+注意：如果执行一个函数调用，却没有可调用对象,则会抛出std::bad_function_call异常
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

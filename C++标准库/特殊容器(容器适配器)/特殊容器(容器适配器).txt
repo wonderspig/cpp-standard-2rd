@@ -1,0 +1,192 @@
+特殊容器(容器适配器)
+有三种标准的容器适配器：
+stacks堆栈，queues队列，priority queues带优先级的队列(根据排序准则，将元素自动排序的队列)
+bitset是一个位域，其内涵任意数量的位，一旦确定大小就固定不再变动
+(C++同时也为boolean提供了一个可变长度的特殊容器vector<bool>)
+
+c++11带来的变化
+1.为容器适配器提供了reference和const_reference，两个类型定义
+2.容器适配器如今提供了move语义和右值引用
+  1.push提供了move语义
+  2.作为初始值的那个容器，其元素可以移动到新容器中
+3.容器适配器提供了emplace()的能力，其内部会创建一个"以其获得的实参为初始值"的新元素
+  (args...，不定参为实参的初始化能力，主要是使用tuple)
+4.容器适配器提供了swap
+5.允许你传递allocator给构造函数，用来字集定义动态内存的分配
+
+1.stacks堆栈
+  stacks堆栈使用后进先出，使用push()压入，使用pop()弹出
+  定义：
+namespace std {
+	template <typename T,
+			  typename Container = deque<T>> 
+	class stack;
+}
+  注意：底层容器类型默认选择deque
+     1.是因为deque在移除元素时会自己释放内存(vector不会)
+     2.就算重新分配内存，也不必复制全部元素(vector在重新分配内存时，会复制全部元素)
+
+  可以使用任何序列容器来构建堆栈(只要支持back(), push_back(), pop_back()这三个函数)
+  例如：std::stack<int> st; //采用默认deque来容纳元素
+     std::stack<int,std::vector<int>> st; //采用vector来容纳元素
+  
+  stacks堆栈核心接口
+  push() 将一个元素压入栈内
+  top()  返回stacks堆栈的下一个元素(值返回不删除)
+  pop()  从stacks堆栈中移除下一个元素(只移除不返回)
+  注意：如果stacks堆栈为null，则调用top()和pop()会产生未明确的结果
+       可以采用size()和empty()来检验容器是否为null
+
+  stacks堆栈运用实例，详见：stack1.cpp
+
+  可以自定义stacks堆栈的接口
+  1.pop()不但移除下一个元素，还会返回下一个元素
+  2.如果static堆栈为null，则pop()和top()会抛出异常
+  定义详见：stack2.hpp
+  使用详见：stack2.cpp
+
+  细究static
+namespace std {
+	template <typename T, typename Container = deque<T>> 
+	class stack {
+		public:
+			typedef typename    Container::value_type            value_type;
+			typedef typename    Container::reference             reference
+			typedef typename    Container::const_reference       const_reference;
+			typedef typename    Container::size_type             size_type;
+        	typedef             Container                        container_type;
+		protected:
+			Container c;
+		public: 
+			bool empty() const                   { return c.empty(); }
+			size_type size() const               { return c.size(); }
+			void push(const value_type& x)       { c.push_back(x); }
+			void push(value_type&& x)            { c.push_back(move(x)); }
+			void pop()                           { c.pop_back(); }
+			value_type& top()                    { return c.back(); }
+			const value_type& top() const        { return c.back(); }
+
+			template <typename... Args>
+			void emplace(Args&&... args) 
+			{
+				c.emplace_back(std::forward<Args>(args)...); 
+			} 
+
+			void swap (stack& s) ...              { swap(c,s.c); }
+			...
+	}; 	
+}
+
+2.queues队列
+  queues队列使用先进先出，使用push()压入，使用pop()弹出，使用front()访问下一个元素，使用back()访问最后一个元素
+  queues队列是一种典型的数据缓冲构造
+  定义：
+namespace std {
+	template <typename T,
+			  typename Container = deque<T>> 
+	class queue;
+}
+  注意：底层容器类型默认选择deque
+
+  std::queue<std::string> buffer;  //一个内涵string的queues
+
+  可以使用任何序列容器来构建queues队列(只要支持front(), back(), push_back(), pop_front()这四个函数)
+  你可以使用list来构建queues队列：
+  std::queue<std::string,std::list<std::string>> buffer;
+
+  queues队列的核心接口
+  push()  将元素放入queues队列中
+  front() 返回queues队列的下一个元素(返回但不移除)
+  back()  返回queues队列的最后一个元素(返回但不移除)
+  pop()   从queues队列中移除一个元素(移除但不返回)
+  注意：如果queues队列为null，则front()，back()，pop()的行为时未定义的
+       可以采用size()和empty()来检验容器是否为null
+
+  queues队列运用实例：详见：queue1.cpp
+
+  用户自定义的queues队列接口(类似于static堆栈)
+  定义详见：Queue.hpp
+  使用详见：queue2.cpp
+
+  细究queues队列(类似于static)
+
+
+3.priority queues带优先级的队列
+  会根据优先级的排序准则，自动排序
+  其内部的元素按优先级被读取，接口类似于queues队列
+  使用push()压入，使用pop()弹出，使用front()访问优先级最高的元素，使用back()访问优先级最低的元素
+  可以自定义排序准则，默认排序准则为<
+
+  定义：
+namespace std {
+	template <typename T,
+	typename Container = vector<T>,
+	typename Compare = less<typename Container::value_type>>
+class priority_queue;
+}
+  注意：底层容器选用vector
+
+  std::priority_queue<float> pbuffer;  //定义一个内部元素为float的priority queues带优先级的队列
+
+  可以使用任何序列容器来构建priority queues带优先级的队列
+  (只要支持随机访问迭代器和front(), push_back(), pop_back()等操作)
+  priority queues带优先级的队列使用的时STL的堆算法，所以必须支持随机访问迭代器
+  可以使用deque来构建priority queues带优先级的队列：
+  std::priority_queue<float,std::deque<float>> pbuffer;
+
+  自定义排序准则为函数对象，要求是二元判断式：
+  std::priority_queue<float,std::vector<float>, std::greater<float>> pbuffer;
+  //相比默认为反向排序，下一个元素是元素最小者
+
+  priority queues带优先级的队列的核心接口：
+  push()  将元素放入priority queues带优先级的队列
+  top()   返回priority queues带优先级的队列的下一个元素(优先级最高的元素)，返回但不移除
+  pop()   移除priority queues带优先级的队列的下一个元素(优先级最高的元素)，移除但不返回
+  注意：如果priority queues带优先级的队列为null，则push()，top()，pop()的行为时未定义的
+       可以采用size()和empty()来检验容器是否为null
+
+  priority queues带优先级的队列的使用实例，详见：priorityqueue1.cpp
+
+  细究priority queues带优先级的队列：
+  priority queues带优先级的队列使用STL的堆算法
+namespace std {
+template <typename T, typename Container = vector<T>,
+		  typename Compare = less<typename Container::value_type>> 
+class priority_queue {
+protected:
+	Compare comp;
+	Container c;
+public:
+	explicit priority_queue(const Compare& cmp = Compare(), const Container& cont = Container()): comp(cmp), c(cont) 
+	{
+		make_heap(c.begin(),c.end(),comp);
+	}
+
+	void push(const value_type& x) 
+	{
+		c.push_back(x);
+		push_heap(c.begin(),c.end(),comp);
+	}
+
+	void pop() 
+	{
+		pop_heap(c.begin(),c.end(),comp);
+		c.pop_back();
+	}
+
+	bool              empty() const { return c.empty(); } 
+	size_type         size() const { return c.size(); }
+	const value_type& top() const { return c.front(); } 
+	...
+	}; 
+}
+  注意：这里没有比较操作符
+
+bitset没有使用过，详细介绍：12.5章，P650页
+
+
+
+
+
+
+

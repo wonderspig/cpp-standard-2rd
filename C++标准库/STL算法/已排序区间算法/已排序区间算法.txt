@@ -1,0 +1,152 @@
+已排序区间算法：
+已排序区间算法的执行，其使用的前提是源区间必须在某个排序准则的作用下已排好序
+如果源区间未排序，那结果是未定义的
+
+1.查找元素
+  1.检查某个元素是否存在
+  bool
+  binary_search (ForwardIterator beg, ForwardIterator end, const T& value)
+  bool
+  binary_search (ForwardIterator beg, ForwardIterator end, const T& value,
+                 BinaryPredicate op)
+  1.两种形式都用来判断已排序区间beg，end中是否包含和value值相等的元素
+  2.op是一个可有可无的二元判断式，被视为排序准则
+
+  binary_search()的用法，详见：binarysearch1.cpp
+
+  2.检查数个元素是否存在
+  bool
+  includes (InputIterator1 beg, InputIterator1 end,
+            InputIterator2 searchBeg, InputIterator2 searchEnd)
+  bool
+  includes (InputIterator1 beg, InputIterator1 end,
+            InputIterator2 searchBeg, InputIterator2 searchEnd, BinaryPredicate op)
+  1.两种形式都用来判断已排序区间beg，end内是否包含另一个已排序区间searchBeg，searchEnd
+    (对于searchBeg，searchEnd内的每一个元素，beg，end内必有一个对应的元素，那么searchBeg，searchEnd区间必定是beg，end区间的子集)
+  2.op是一个可有可无的二元判断式，被视为排序准则
+
+  includes()的使用，详见：includes1.cpp
+
+  3.查找第一个或最后一个可能的位置
+  ForwardIterator
+  lower_bound (ForwardIterator beg, ForwardIterator end, const T& value)
+  ForwardIterator
+  lower_bound (ForwardIterator beg, ForwardIterator end, const T& value,
+               BinaryPredicate op) 
+  ForwardIterator
+  upper_bound (ForwardIterator beg, ForwardIterator end, const T& value)
+  ForwardIterator
+  upper_bound (ForwardIterator beg, ForwardIterator end, const T& value,
+               BinaryPredicate op)
+  1.lower_bound()返回第一个大于等于value的元素位置，这是可插入元素值为value，但是不破坏已排序区间beg，end顺序的第一个位置
+  2.upper_bound()返回第一个大于等于value的元素位置，这是可插入元素值为value，但是不破坏已排序区间beg，end顺序的最后一个位置
+  3.op是一个可有可无的二元判断式，被视为排序准则
+
+  如何使用lower_bound()和upper_bound()，详见：bounds1.cpp
+
+  4.查找第一个和最后一个可能的位置
+  pair<ForwardIterator,ForwardIterator>
+  equal_range (ForwardIterator beg, ForwardIterator end, const T& value)
+  pair<ForwardIterator,ForwardIterator>
+  equal_range (ForwardIterator beg, ForwardIterator end, const T& value,
+               BinaryPredicate op)
+  1.两种形式都返回已排序区间beg，end中与value元素相等的元素所形成的区间，在此区间内插入值为value的元素，不会破坏beg，end的已排序性
+  2.同 make_pair(lower_bound(...),upper_bound(...))等效
+  3.op是一个刻有可无的二元判断式，被视为排序准则
+
+  equal_range()的使用，详见：equalrange1.cpp
+
+2.合并元素
+  将两个已排序的区间合并，包括汇总sum，并集union，交集intersection
+  
+  1.两个已排序集合的总和
+  OutputIterator
+  merge (InputIterator source1Beg, InputIterator source1End,
+         InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg)
+  OutputIterator
+  merge (InputIterator source1Beg, InputIterator source1End,
+         InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg, BinaryPredicate op)
+  1.两者都是将源区间source1Beg，source1End和source2Beg，source2End内的元素合并
+    使得以destBeg为起始的目标区间，内含两个源区间的所有元素，且已经排序
+  2.op是一个可有可无的二元判断式，被视为排序准则
+  3.源区间不会有变化
+  4.源区间和目标区间不可重叠
+
+  merge()的使用，详见：merge1.cpp
+
+  2.两个已排序集合的并集
+  OutputIterator
+  set_union (InputIterator source1Beg, InputIterator source1End,
+             InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg)
+  OutputIterator
+  set_union (InputIterator source1Beg, InputIterator source1End,
+             InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg, BinaryPredicate op)
+  1.两者都是将源区间source1Beg，source1End和source2Beg，source2End内的元素合并
+    使得以destBeg为起始的目标区间，要么含有源第一区间的元素，要么含有源第二区间的元素，或者源第一第二区间共有的元素
+    且目标区间也已经排序
+  2.如果两个区间内都有同一个元素，则目标区间这个元素只出现一次
+    如果原来区间内原本就有重复元素，则目标区间也会有重复元素----重复次数是两个源区间内重复次数的最大值
+  3.op是一个可有可无的二元判断式，被视为排序准则
+  4.源区间不会有变化
+
+  merge，set_union，set_intersection，set_difference合并算法的区别，详见：sorted1.cpp
+
+  3.两个已排序集合的交集
+  OutputIterator
+  set_intersection (InputIterator source1Beg, InputIterator source1End,
+                    InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg)
+  OutputIterator
+  set_intersection (InputIterator source1Beg, InputIterator source1End,
+                    InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg, BinaryPredicate op)
+  1.两者都是将源区间source1Beg，source1End和source2Beg，source2End内的元素合并
+    使得以destBeg为起始的目标区间，内含的元素需要即存在于第一区间，也同时存在于第二区间
+    且目标区间也已经排序
+  2.如果源区间内原本就有重复元素，则目标区间也会有重复元素----重复次数是两个源区间内重复次数的较小值
+  3.op是一个可有可无的二元判断式，被视为排序准则
+  4.源区间不会有变化
+
+  merge，set_union，set_intersection，set_difference合并算法的区别，详见：sorted1.cpp
+
+  4.两个已排序集合的差集
+  OutputIterator
+  set_difference (InputIterator source1Beg, InputIterator source1End,
+                  InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg)
+  OutputIterator
+  set_difference (InputIterator source1Beg, InputIterator source1End,
+                  InputIterator source2Beg, InputIterator source2End, OutputIterator destBeg, BinaryPredicate op)
+  1.两者都是将源区间source1Beg，source1End和source2Beg，source2End内的元素合并
+    使得以destBeg为起始的目标区间，要么含有源第一区间的元素，要么含有源第二区间的元素，但不包括源第一第二区间共有的元素
+  2.如果源区间内原本就有重复元素，则目标区间也会有重复元素----重复次数是两个源区间内重复次数的差数值
+    且目标区间也已经排序
+  3.op是一个可有可无的二元判断式，被视为排序准则
+  4.源区间不会有变化
+
+  merge，set_union，set_intersection，set_difference合并算法的区别，详见：sorted1.cpp
+
+  5.合并连贯之已排序区间
+  void
+  inplace_merge (BidirectionalIterator beg1, BidirectionalIterator end1beg2,
+                 BidirectionalIterator end2)
+  inplace_merge (BidirectionalIterator beg1, BidirectionalIterator end1beg2,
+                 BidirectionalIterator end2, BinaryPredicate op)
+  1.两者都是将源区间beg1，end1beg2和end1beg2，end2内的元素合并，使区间beg1，end2成为两者之总和(且形成已排序状态)
+  
+  inplace_merge()的用法，详见：inplacemerge1.cpp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

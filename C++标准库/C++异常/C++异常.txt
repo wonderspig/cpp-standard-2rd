@@ -1,0 +1,77 @@
+system_error和future_error以及其子类，拥有额外的成员可以取得详细信息
+(额外成员指的是what()成员函数以外的成员，这个成员是code()成员函数)
+C++标准库中，这两个类，及其子类，有额外的code成员函数来获取详细信息
+通过code成员函数， 来获取异常的详细信息
+以下是获取信息的树状结构图
+                                                                 code()
+                                                                  ｜
+                                             —————————————————————————————————————————————————-——————————————
+                                            ｜           ｜                  ｜               ｜             ｜
+                                         value    error_category      error_condition       message     operator bool
+                                                         ｜                      ｜
+                                                ——————————————————————           ｜
+                                               ｜       ｜           ｜           ｜
+                                              name   message   error_condition    ｜
+                                             (类型)                               ｜
+                                                                                 ｜
+                                                                     ———————————————————————————————————————
+                                                                    ｜            ｜         ｜             ｜
+                                                              error_category    value     message      operator bool
+code()成员函数详解:
+差错码可能是相同的整数值, 所以每一个差错都有一个分类和一个整数值组成, 这个整数值只有在其固定的分类中才有意义
+1.message: 会产生出一个错误信息, 可能是what()信息中的一部分
+2.operator bool: 是否有一个差错码被设置(一般捕获到异常再调用这个成员函数的时候, 这个值应该为true)
+3.error_category: 差错的分类(包含以下成员)
+  1.name: 分类名称
+    1."iostream": 针对类型为ios_base::failure的IO Stream异常
+    2."generic": 针对类型为system_error的system异常,其值对应一个POSIX errno值
+    3."system": 针对类型为system_error的system异常,其值不对应一个POSIX errno值
+    4."future" 针对类型为future_error提供的异常
+    注意: 这些异常类型可以由如下全局函数获得(用来判断异常的类型)
+      const error_category& generic_category() noexcept; // in <system_errror>
+      const error_category& system_category() noexcept; // in <system_error>
+      const error_category& iostream_category(); // in <ios>
+      const error_category& future_category() noexcept; // in <future>
+      例: if (e.code().category() == std::iostream_category())
+  2.message: 错误信息
+  3.error_condition: 差错状态
+  注意: 允许使用"=="和"!="来对两个异常分类进行比较
+4.value: 错误码的整数值(只有在其固定的类型中,才有意义)
+5.error_conditio: 错误状态(包含如下成员信息: 除去自身外和code()的成员信息一模一样)
+  1.operator bool: 是否有一个差错码被设置(一般捕获到异常再调用这个成员函数的时候, 这个值应该为true)
+  2.message: 会产生出一个错误信息, 可能是what()信息中的一部分
+  3.value: 错误码的整数值(只有在其固定的类型中,才有意义)
+  4.error_category: 差错的分类
+
+
+Class std::errc提供了错误状态(为std::system_error提供了错误状态)
+Class std::io_errc提供了错误码(为std::ios_base::failure提供了错误码)
+Class std::future_errc提供了错误码(为std::future_error提供了错误码)
+注意: 错误码的类型是: std::error_code
+     错误状态的类型是: std::error_condition
+     (两者都可以用"=="和"!="来直接比较, "=="和"!="操作符适用于对象类型本身或其枚举值)
+
+
+
+如何处理不同的code异常(打印), 详见：exception.hpp
+
+
+
+
+用Class exception_ptr传递异常
+std::exception_ptr eptr;
+void foo ()
+{
+    try {
+        throw ...;
+    }
+    catch (...) {
+        eptr = std::current_exception();
+    }
+}
+
+void bar () {
+    if (eptr != nullptr) {
+        std::rethrow_exception(eptr);
+    }
+}

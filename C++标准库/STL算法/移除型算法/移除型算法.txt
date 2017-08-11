@@ -1,0 +1,68 @@
+移除型算法
+根据元素值，或根据某一准则，在一个区间内移除某些元素。
+真写算法并不是真的移除某些元素，只是逻辑上的移除：
+将后面不需要移除的元素向前移动，覆盖那些应被移除的元素，它们都返回新区间的逻辑终点(也就是最后一个不被移除的元素的下一个位置)
+
+1.移除某些元素
+  1.移除序列内的元素
+  ForwardIterator
+  remove (ForwardIterator beg, ForwardIterator end,
+          const T& value)
+  ForwardIterator
+  remove_if (ForwardIterator beg, ForwardIterator end,
+             UnaryPredicate op)
+  1.remove()会移除beg，end区间内每一个与value值相等的元素
+  2.remove_if()会移除beg，end区间内每一个令一元判断式op结果为true的元素
+    remove_if()可能会在内部复制一元判断式op，如果一元判断式再调用过程中改变状态，可能会出现问题
+
+  remove()和remove_if()的使用，详见：remove1.cpp
+
+ 2.复制时一并移除元素
+ OutputIterator
+ remove_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+              OutputIterator destBeg, const T& value)
+ OutputIterator
+ remove_copy_if (InputIterator sourceBeg, InputIterator sourceEnd,
+                 OutputIterator destBeg, UnaryPredicate op)
+ 1.remove_copy()是remove和copy的组合，它将源区间sourceBeg，sourceEnd内的所有元素复制到以destBeg为起点的目标区间去
+   并在复制过程中移除"与value相等"的元素
+ 2.remove_copy_if()是copy和remove_if的组合，它将源区间sourceBeg，sourceEnd内的所有元素复制到以destBeg为起点的目标区间去
+   并在复制过程中移除与一元判断式结果为true的元素
+
+ remove_copy()和remove_copy_if()的使用，详见：remove2.cpp
+
+2.移除重复元素
+  1.移除连续重复元素
+  ForwardIterator
+  unique (ForwardIterator beg, ForwardIterator end)
+  ForwardIterator
+  unique (ForwardIterator beg, ForwardIterator end,
+          BinaryPredicate op)
+  1.以上两种形式都会移除连续重复元素中的多余元素
+  2.第一形式将beg，end区间内，所有"与第一元素相等"的元素被移除
+    (源序列必须经过排序，才能使用这个算法移除全部重复元素)
+  3.第二形式将第一形式将beg，end区间内，连续两个以上元素，令一元判断式的结果为true，则只保留第一个为true的元素，剩余的删除
+    (比较的规则并不是和原本的前一个元素做比较，而是和"经过处理后仍健在的"前一个元素做比较)
+
+  unique的用法，详见：unique1.cpp
+
+  2.复制过程中，移除重复元素
+  OutputIterator
+  unique_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+               OutputIterator destBeg)
+  OutputIterator
+  unique_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+               OutputIterator destBeg, BinaryPredicate op)
+  1.两种形式都是unique和copy的组合
+  2.两者都将源区间sourceBeg，sourceEnd内的元素，复制到以destBeg为起点的目标区间，并移除重复元素
+    (移除重复元素的规则与unique相同)
+
+  unique_copy()的用法，详见：unique2.cpp
+  使用unique_copy()算法来压缩空白序列，详见：unique3.cpp
+
+
+
+
+
+
+

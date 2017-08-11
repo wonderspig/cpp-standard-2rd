@@ -1,0 +1,17 @@
+数值的极值
+在c++11中，数值的极值由通用模板numeric_limits<>，以及其特化版本来定义，代替了之前的C语言中的预定义宏的模型(当然现在仍然可以使用预定义宏)
+例如，int的极值
+通用模板：
+template <typename T>
+class numeric_limits{
+	.......
+}
+int的特化版本：
+template<> class numeric_limits<int>{
+	........
+}
+注意：每一种基础类型，都定义一种特化版本，来定义出它的数值的极值
+
+模板numeric_limits<>的所有成员(P117页)，所有成员都被加上了constexpr，来进行编译期的计算
+
+如何使用数值的极值，详见：limits1.cpp

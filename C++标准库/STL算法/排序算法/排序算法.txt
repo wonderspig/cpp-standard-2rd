@@ -1,0 +1,131 @@
+排序算法：
+排序算法用阿狸对区间内的所有元素进行排序，除了完全排序，还支持鼠哥变体用于局部排序
+如果局部排序的功能对你来说已经足够，则应该优先使用局部排序，应为它们效能更佳
+
+1.对所有元素排序
+  void
+  sort (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  sort (RandomAccessIterator beg, RandomAccessIterator end, BinaryPredicate op)
+  void
+  stable_sort (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  stable_sort (RandomAccessIterator beg, RandomAccessIterator end,
+               BinaryPredicate op)
+  1.sort()和stable_sort()的第一形式，使用<对beg，end区间内的所有元素排序
+  2.sort()和stable_sort()的第二形式，使用二元判断式op为排序准则，对beg，end区间内的所有元素排序
+    (排序准则必须是对程的，不是大于，就是小于，不能是类似于大于等于)
+  3.sort()和stable_sort()的区别是，后者保证了元素的相对次序
+
+  sort()的用法，详见：sort1.cpp
+  sort()和stable_sort()的区别，详见：sort2.cpp
+
+2.局部排序
+  void
+  partial_sort (RandomAccessIterator beg, RandomAccessIterator sortEnd,
+                RandomAccessIterator end)
+  partial_sort (RandomAccessIterator beg, RandomAccessIterator sortEnd,
+                RandomAccessIterator end, BinaryPredicate op)
+  1.第一形式使用<对beg，end区间内的元素进行排序，使beg，sortEnd区间内的元素处于已序状态
+  2.第二形式使用二元判断式op为排序准则，对beg，end区间内的元素进行排序，使beg，sortEnd区间内的元素处于已序状态
+    (排序准则必须是对程的，不是大于，就是小于，不能是类似于大于等于)
+
+  partial_sort()的用法，详见：partialsort1.cpp
+
+
+  RandomAccessIterator
+  partial_sort_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+                     RandomAccessIterator destBeg, RandomAccessIterator destEnd)
+  RandomAccessIterator
+  partial_sort_copy (InputIterator sourceBeg, InputIterator sourceEnd,
+                     RandomAccessIterator destBeg, RandomAccessIterator destEnd, BinaryPredicate op)
+  1.两者都是partial_sort和copy的组合，它们将元素从源区间sourceBeg，sourceEnd复制到目标区间destBeg，destEnd中
+    并且进行排序
+  2.被排序的元素量是源区间和目标区间，两者所含元素量的较小值 
+
+  partial_sort_copy()的使用，详见：partialsort2.cpp
+
+3.根据第n个元素进行排序
+  void
+  nth_element (RandomAccessIterator beg, RandomAccessIterator nth,
+               RandomAccessIterator end)
+  void
+  nth_element (RandomAccessIterator beg, RandomAccessIterator nth,
+               RandomAccessIterator end, BinaryPredicate op)
+  1.两种形式都对beg，end区间内的元素进行排序，根据第n个元素进行排序
+    (在n的位置之前的元素都小于n，在n的位置之后的元素都大于n)
+    (不要求两个子序列里是按照排序规则排序的)
+  2.第一形式使用<号进行排序
+  3.第二形式使用二元判断式op进行排序
+    (排序准则必须是对程的，不是大于，就是小于，不能是类似于大于等于)
+  
+  nth_element()的用法，详见：nthelement1.cpp
+
+4.heap算法
+  heap是一种特殊的元素组织方式
+  heap可以看作是一个序列式集合实现而成的二叉树，具有两大性质：
+  1.第一个元素总是最大
+  2.总能在对数时间内增加或移除一个元素
+  为了处理堆，STL提供了4中算法：
+  1. make_heap()将某区间内的元素转换为堆
+  2. push_heap()对堆增加一个元素
+  3. pop_heap()对堆取出下一个元素
+  4. sort_heap()将堆转换为一个已排序群集(以后它就不再是堆了)
+  注意：你也可以创建一个二元判断式为排序准则，默认的排序准则是<
+
+  堆算法细节：
+  void
+  make_heap (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  make_heap (RandomAccessIterator beg, RandomAccessIterator end,
+             BinaryPredicate op)
+  1.两种形式都将beg，end区间内的元素转换为堆
+  2.op是一个刻有可无的排序准则
+  3.只有在元素所欲一个的情况下，才有必要使用这些函数处理堆，如果只有单一元素，那它自动形成一个堆
+
+  void
+  push_heap (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  push_heap (RandomAccessIterator beg, RandomAccessIterator end,
+             BinaryPredicate op)
+  1.两种形式都将end之前的最后一个元素，加入原本就是堆的beg，end-1区间内，使整个beg，end区间成为一个堆
+  2.op是一个刻有可无的排序准则
+  3.原本的集合本来就是一个堆，新元素被放在原本集合之后，这点由调用者自己保证
+
+  void
+  pop_heap (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  pop_heap (RandomAccessIterator beg, RandomAccessIterator end,
+            BinaryPredicate op)
+  1.两种形式都让堆beg，end内的最高元素，也就是第一个元素，移动到最后的位置，并将剩余的区间beg，end-1组合起来，形成一个新的堆
+  2.op是一个刻有可无的排序准则
+  3.原来的beg，end区间是一个堆，由调用者自己保证
+
+  void
+  sort_heap (RandomAccessIterator beg, RandomAccessIterator end)
+  void
+  sort_heap (RandomAccessIterator beg, RandomAccessIterator end,
+             BinaryPredicate op)
+  1.两种形式都可以将堆，beg，end转换为一个已排序序列(此算法结束，这个序列就不再是堆了)
+  2.op是一个可有可无的排序准则
+  3.保证beg，end原本就是一个堆，是调用者的责任
+
+  如何使用堆的各种算法：详见：heap1.cpp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
